@@ -1,0 +1,96 @@
+# Container-Start und Status-Überwachung
+# Startet den Container und wartet, bis er vollständig betriebsbereit ist
+
+- name: "Starte Container {{ container_id }}"
+  shell: "pct start {{ container_id }}"
+  register: container_start_result
+  tags: start
+
+- name: "Debug: Container-Start Ergebnis"
+  debug:
+    msg: |
+      Container-Start Ergebnis:
+      - Return Code: {{ container_start_result.rc }}
+      - Ausgabe: {{ container_start_result.stdout | default('keine Ausgabe') }}
+      - Fehler: {{ container_start_result.stderr | default('kein Fehler') }}
+  when: enable_debug | default(false)
+  tags: debug
+
+- name: "Fehler beim Container-Start"
+  fail:
+    msg: |
+      Container {{ container_id }} konnte nicht gestartet werden!
+
+      Fehlerdetails:
+      {{ container_start_result.stderr }}
+      Manuelle Fehlerdiagnose:
+      - pct status {{ container_id }}
+      - pct start {{ container_id }} -v
+  when: container_start_result.rc != 0
+  tags: start
+
+- name: "Warte bis Container vollstaendig gestartet ist"
+  shell: "pct status {{ container_id }}"
+  register: status_check
+  until: "'running' in status_check.stdout"
+  retries: "{{ container_start_retries }}"
+  delay: "{{ container_start_delay }}"
+  tags: start
+
+- name: "Simuliere Container-Start-Wartezeit (Check-Modus)"
+  debug:
+    msg: "Im echten Modus würde hier gewartet bis Container {{ container_id }} läuft"
+  when:
+    -  ansible_check_mode
+    - enable_debug | default(false)
+  tags: start
+
+- name: "Ermittle Container-IP-Adresse"
+  shell: "pct exec {{ container_id }} -- ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1 | head -1"
+  register: container_ip_result
+  failed_when: false
+  changed_when: false
+  tags: info
+
+- name: "Sammle Container-Informationen"
+  shell: "pct list | grep {{ container_id }}"
+  register: container_info
+  changed_when: false
+  tags: info
+
+- name: "Debug: Container-Informationen"
+  debug:
+    msg: |
+      Container-Info Raw:
+      {{ container_info.stdout }} 
+      IP-Adresse Raw:
+      {{ container_ip_result.stdout | default('nicht ermittelbar') }}
+  when: enable_debug | default(false)
+  tags: debug
+
+- name: "Container-Deployment erfolgreich abgeschlossen"
+  debug:
+    msg: |
+      ===============================================
+      CONTAINER ERFOLGREICH DEPLOYED!
+      ===============================================
+      Container-Details:
+      - Container-ID: {{ container_id }} ({{ id_source }})
+      - Hostname: {{ container_hostname }}
+      - Status: {{ container_info.stdout.split()[1] if container_info.stdout.split() | length > 1 else 'unbekannt' }}
+      - IP-Adresse: {{ container_ip_result.stdout if container_ip_result.stdout else 'DHCP wird ermittelt' }}
+      - VLAN: {{ container_vlan }}
+      - Template: {{ container_template }}
+      - Storage: {{ container_storage }}
+
+      Hardware-Konfiguration:
+      - CPU Cores: {{ container_cores }}
+      - RAM: {{ container_memory }}MB
+      - Root-Filesystem: {{ container_rootfs_size }}GB
+      - Tags: {{ container_tags }}
+
+      SSH-Verbindung (falls SSH konfiguriert):
+      ssh root@{{ container_ip_result.stdout if container_ip_result.stdout else 'IP-Adresse' }}
+
+  when: enable_debug | default(false)
+  tags: info

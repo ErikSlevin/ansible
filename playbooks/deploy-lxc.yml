@@ -1,0 +1,6 @@
+- name: Deploy LXC Container on Proxmox
+  hosts: proxmox
+  become: yes
+  gather_facts: no
+  roles:
+    - proxmox_lxc

@@ -1,0 +1,34 @@
+# Debug-Ausgaben standardmäßig deaktivieren
+enable_debug: false
+
+# Container ID Management
+# Bereich fuer automatische ID-Vergabe
+lxc_id_range_start: 100
+lxc_id_range_end: 999
+
+# Standard-Container-Konfiguration
+# Diese Werte werden verwendet, wenn nichts anderes angegeben wird
+lxc_default_template: "synology:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+lxc_default_storage: "local-lvm"
+lxc_default_cores: 2
+lxc_default_memory: 2048
+lxc_default_rootfs: 10
+lxc_default_vlan: 20
+lxc_default_tags: "prod"
+lxc_default_hostname: "auto-container"
+
+# Container-Parameter (diese koennen ueberschrieben werden)
+# Hier werden die Eingabe-Parameter mit Fallback-Werten verknuepft
+container_hostname: "{{ ct_hostname | default(lxc_default_hostname) }}"
+container_template: "{{ ct_template | default(lxc_default_template) }}"
+container_storage: "{{ ct_storage | default(lxc_default_storage) }}"
+container_cores: "{{ ct_cores | default(lxc_default_cores) }}"
+container_memory: "{{ ct_memory | default(lxc_default_memory) }}"
+container_rootfs_size: "{{ ct_rootfs | default(lxc_default_rootfs) }}"
+container_vlan: "{{ ct_vlan | default(lxc_default_vlan) }}"
+container_ip: "{{ ct_ip | default('dhcp') }}"
+container_tags: "{{ ct_tags | default(lxc_default_tags) }}"
+
+# Timing-Einstellungen
+container_start_retries: 10
+container_start_delay: 2

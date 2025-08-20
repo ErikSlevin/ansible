@@ -1,0 +1,79 @@
+# Container-Erstellung
+# Erstellt den LXC Container mit allen angegebenen Parametern
+
+- name: "Debug: Container-Konfiguration anzeigen"
+  debug:
+    msg: |
+      📋 Container-Konfiguration:
+      ═══════════════════════════════════════
+      ID: {{ container_id }}
+      Hostname: {{ container_hostname }}
+      Template: {{ container_template }}
+      Storage: {{ container_storage }}
+      ───────────────────────────────────────
+      Hardware:
+      - CPU Cores: {{ container_cores }}
+      - Memory: {{ container_memory }}MB
+      - Root FS: {{ container_rootfs_size }}GB
+      ───────────────────────────────────────
+      Netzwerk:
+      - VLAN: {{ container_vlan }}
+      - IP: {{ container_ip }}
+      ───────────────────────────────────────
+      Sonstiges:
+      - Tags: {{ container_tags }}
+      ═══════════════════════════════════════
+  when: enable_debug | default(false)
+  tags: debug
+
+
+- name: "📦 Erstelle LXC Container {{ container_id }}"
+  shell: |
+    pct create {{ container_id }} {{ container_template }} \
+      --hostname {{ container_hostname }} \
+      --storage {{ container_storage }} \
+      --cores {{ container_cores }} \
+      --memory {{ container_memory }} \
+      --rootfs {{ container_storage }}:{{ container_rootfs_size }} \
+      --net0 name=eth0,bridge=vmbr0,tag={{ container_vlan }},ip={{ container_ip }}{% if container_ip != 'dhcp' %}/24,gw=10.{{ container_vlan }}.0.1{% endif %} \
+      --unprivileged 1 \
+      --tags {{ container_tags }}
+  register: container_create_result
+  tags: create
+
+- name: "Debug: Container-Erstellung Ergebnis"
+  debug:
+    msg: |
+      Container-Erstellung Ergebnis:
+      - Return Code: {{ container_create_result.rc }}
+      - Ausgabe: {{ container_create_result.stdout | default('keine Ausgabe') }}
+      - Fehler: {{ container_create_result.stderr | default('kein Fehler') }}
+  when: enable_debug | default(false)
+  tags: debug
+
+- name: "Fehler bei Container-Erstellung"
+  fail:
+    msg: |
+      ❌ Container-Erstellung fehlgeschlagen!
+
+      Fehlerdetails:
+      {{ container_create_result.stderr }}
+
+      Mögliche Ursachen:
+      1. Template nicht gefunden: {{ container_template }}
+      2. Storage nicht verfügbar: {{ container_storage }}
+      3. Nicht genügend Speicherplatz
+      4. Netzwerk-Konfigurationsfehler
+      Prue�fe die Proxmox-Logs fuer weitere Details:
+      - journalctl -f
+      - /var/log/pve/tasks/
+  when: container_create_result.rc != 0
+  tags: create
+
+- name: "✅ Container {{ container_id }} erfolgreich erstellt"
+  debug:
+    msg: "Container {{ container_hostname }} (ID: {{ container_id }}) wurde erfolgreich erstellt"
+  when:
+    - container_create_result.rc == 0
+    - enable_debug | default(false)
+  tags: create

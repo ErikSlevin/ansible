@@ -1,0 +1,27 @@
+# Hauptsteuerung der proxmox_lxc Rolle
+# Ruft alle Teilaufgaben in der korrekten Reihenfolge auf
+
+- name: "Container-ID Management"
+  include_tasks: id_management.yml
+  tags:
+    - id_management
+    - always
+
+- name: "Container-Validierung"
+  include_tasks: validation.yml
+  tags:
+    - validation
+    - always
+
+- name: "Container-Erstellung"
+  include_tasks: container_create.yml
+  tags:
+    - create
+    - container
+
+- name: "Container-Start und Info"
+  include_tasks: container_start.yml
+  tags:
+    - start
+    - container
+    - info
