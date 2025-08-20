@@ -1,17 +1,17 @@
 # Container-Validierung
 # Überprüft ob die gewählte Container-ID tatsächlich verfügbar ist
 
-- name: "Überprüfe Status der Container-ID {{ container_id }}"
+- name: "Ueberpruefe Status der Container-ID {{ container_id }}"
   shell: "pct status {{ container_id }}"
   register: container_status
   failed_when: false
   changed_when: false
   tags: validation
 
-- name: "Debug: Container-Status-Prüfung"
+- name: "Debug: Container-Status-Pruefung"
   debug:
     msg: |
-      Container-ID {{ container_id }} Status-Prüfung:
+      Container-ID {{ container_id }} Status-Pruefung:
       - Return Code: {{ container_status.rc }}
       - Ausgabe: {{ container_status.stdout | default('keine Ausgabe') }}
       - Fehler: {{ container_status.stderr | default('kein Fehler') }}
@@ -21,19 +21,11 @@
   fail:
     msg: |
       Container mit ID {{ container_id }} existiert bereits!
-      
       Aktueller Status: {{ container_status.stdout }}
-      
-      Lösungsvorschläge:
-      1. Verwende eine andere Container-ID: -e ct_id=<andere_nummer>
-      2. Lasse die ID automatisch vergeben: -e ct_id=auto
-      3. Lösche den bestehenden Container: pct destroy {{ container_id }}
-      
-      ACHTUNG: Das Löschen eines Containers ist unwiderruflich!
   when: container_status.rc == 0
   tags: validation
 
-- name: "Container-ID {{ container_id }} ist verfügbar"
+- name: "Container-ID {{ container_id }} ist verfuegbar"
   debug:
     msg: "Container-ID {{ container_id }} ist frei und kann verwendet werden"
   when: container_status.rc != 0

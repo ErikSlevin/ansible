@@ -4,30 +4,29 @@
 - name: "Debug: Container-Konfiguration anzeigen"
   debug:
     msg: |
-      📋 Container-Konfiguration:
-      ═══════════════════════════════════════
+      Container-Konfiguration:
       ID: {{ container_id }}
       Hostname: {{ container_hostname }}
       Template: {{ container_template }}
       Storage: {{ container_storage }}
-      ───────────────────────────────────────
+
       Hardware:
       - CPU Cores: {{ container_cores }}
       - Memory: {{ container_memory }}MB
       - Root FS: {{ container_rootfs_size }}GB
-      ───────────────────────────────────────
+
       Netzwerk:
       - VLAN: {{ container_vlan }}
       - IP: {{ container_ip }}
-      ───────────────────────────────────────
+
       Sonstiges:
       - Tags: {{ container_tags }}
-      ═══════════════════════════════════════
+
   when: enable_debug | default(false)
   tags: debug
 
 
-- name: "📦 Erstelle LXC Container {{ container_id }}"
+- name: "Erstelle LXC Container {{ container_id }}"
   shell: |
     pct create {{ container_id }} {{ container_template }} \
       --hostname {{ container_hostname }} \
