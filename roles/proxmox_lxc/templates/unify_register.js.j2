@@ -1,10 +1,51 @@
 // Ansible managed - Unify Controller MAC Registration
 db = db.getSiblingDB('ace');
 
-db.user.update(
-  { mac: "{{ container_mac }}" },
-  { $set: { name: "LXC-{{ container_hostname }}" } },
-  { upsert: true }
-);
-
-print("MAC {{ container_mac }} registered with name LXC-{{ container_hostname }}");
+try {
+  // Basis-Update für alle Container
+  var updateDoc = {
+    name: "{{ unify_name_prefix | default('LXC') }}-{{ container_hostname }}",
+    hostname: "{{ container_hostname }}",
+    display_name: "{{ unify_name_prefix | default('LXC') }}-{{ container_hostname }}",
+    note: "{{ container_unify_note | default('Proxmox LXC Container') }}",
+    usergroup_id: "{{ unify_usergroup_id | default('') }}",
+    blocked: {{ unify_blocked | default(false) | lower }},
+    is_guest: {{ unify_guest | default(false) | lower }},
+    use_fixedip: false
+  };
+  
+  // Fixed IP falls konfiguriert
+  {% if container_ip != 'dhcp' %}
+  updateDoc.fixed_ip = "{{ container_ip }}";
+  updateDoc.use_fixedip = true;
+  {% endif %}
+  
+  var result = db.user.updateOne(
+    { mac: "{{ container_mac }}" },
+    { $set: updateDoc },
+    { upsert: true }
+  );
+  
+  // Erfolgs-Meldungen
+  if (result.matchedCount > 0) {
+    print("SUCCESS: Updated existing device");
+  } else if (result.upsertedCount > 0) {
+    print("SUCCESS: Created new device");
+  }
+  
+  print("Device Details:");
+  print("- MAC: {{ container_mac }}");
+  print("- Name: " + updateDoc.name);
+  print("- Hostname: {{ container_hostname }}");
+  print("- VLAN: {{ container_vlan | default('auto') }}");
+  {% if container_ip != 'dhcp' %}
+  print("- Fixed IP: {{ container_ip }}");
+  {% else %}
+  print("- IP: DHCP");
+  {% endif %}
+  print("- Note: " + updateDoc.note);
+  
+} catch (e) {
+  print("ERROR: Failed to register device: " + e);
+  quit(1);
+}
