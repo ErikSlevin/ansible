@@ -1,0 +1,35 @@
+#!/bin/bash
+MAC="{{ container_mac_result.stdout | upper }}"
+NAME="{{ container_hostname }}"
+CONTAINER_ID="{{ container_id }}"
+
+# MongoDB Update oder Erstellung für neue MAC-Adresse
+mongo --port 27117 ace --eval "
+db.user.update(
+  {\"mac\": \"${MAC}\"}, 
+  {\"\$set\": {
+    \"name\": \"${NAME}\",
+    \"display_name\": \"${NAME}\",
+    \"hostname\": \"${NAME}\",
+    \"note\": \"Proxmox LXC Container ID ${CONTAINER_ID}\",
+    \"mac\": \"${MAC}\",
+    \"is_wired\": true,
+    \"is_guest\": false,
+    \"blocked\": false,
+    \"noted\": true,
+    \"usergroup_id\": \"\",
+    \"use_fixedip\": false,
+    \"fingerprint_override\": true,
+    \"dev_id_override\": \"${MAC}\".replace(/:/g, ''),
+    \"device_id\": \"${MAC}\".replace(/:/g, ''),
+    \"first_seen\": NumberLong(Math.floor(Date.now() / 1000)),
+    \"last_seen\": NumberLong(Math.floor(Date.now() / 1000)),
+    \"oui\": \"Proxmox Server Solutions GmbH\",
+    \"site_id\": ObjectId(\"5f4a34e0a7986c0ea415ca25\")
+  }},
+  {upsert: true, multi: false}
+)"
+
+# UniFi Service neu starten
+service unifi restart
+echo "Updated/Created ${MAC} with name ${NAME}"

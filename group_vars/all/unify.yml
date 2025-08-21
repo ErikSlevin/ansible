@@ -1,0 +1,41 @@
+---
+# UniFi Controller Konfiguration
+# Gilt fuer alle Hosts, die mit UniFi registriert werden
+
+# UniFi Controller Details
+unify_controller_host: "10.0.0.254"
+unify_controller_port: 27117
+
+# Site und Netzwerk-Konfiguration
+unify_site_id: "5f4a34e0a7986c0ea415ca25"
+
+# Netzwerk-Zuordnungen basierend auf VLAN
+unify_networks:
+  # VLAN 10 - Management
+  10:
+    network_id: "5f4a34efa7986c0ea415ca34"  # Beispiel-ID
+    network_name: "VLAN 10 - Management"
+  # VLAN 20 - Server/Production
+  20:
+    network_id: "6893b739d3d4080f261257a0"
+    network_name: "VLAN 20 - Server"
+  # VLAN 30 - DMZ
+  30:
+    network_id: "6893b739d3d4080f261257a1"  # Beispiel-ID
+    network_name: "VLAN 30 - DMZ"
+
+# Switch-Details (fuer Uplink-Informationen)
+unify_uplink_name: "Switch"
+unify_uplink_mac: "e0:63:da:e4:9e:92"
+
+# Standard-Werte fuer Container-Registrierung
+unify_name_prefix: "LXC"
+unify_blocked: false
+unify_guest: false
+unify_usergroup_id: ""
+unify_user_id: ""
+
+# Automatische Netzwerk-Zuordnung basierend auf Container-VLAN
+# Diese Variablen werden im Template verwendet
+unify_network_id: "{{ unify_networks[container_vlan | int].network_id if container_vlan | int in unify_networks else unify_networks[20].network_id }}"
+unify_network_name: "{{ unify_networks[container_vlan | int].network_name if container_vlan | int in unify_networks else unify_networks[20].network_name }}"

@@ -36,3 +36,8 @@ container_start_delay: 2
 # Unify Controller Integration
 unify_controller_ip: "10.0.0.254"
 unify_registration_enabled: true
+
+# Container Setup
+container_setup_enabled: true
+container_timezone: "Europe/Berlin"
+container_locale: "de_DE.UTF-8"

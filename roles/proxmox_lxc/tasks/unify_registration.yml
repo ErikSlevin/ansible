@@ -1,46 +1,55 @@
-# Unify Network Registration
-# Registriert die Container-MAC-Adresse im Unify Controller
-
+---
+# Unify Network Registration - Template-basiert
 - name: "Ermittle Container-MAC-Adresse"
   shell: "pct config {{ container_id }} | grep -E '^net0:' | grep -o 'hwaddr=[^,]*' | cut -d= -f2"
   register: container_mac_result
   changed_when: false
   tags: unify
 
-- name: "Setze Container-MAC als Variable"
-  set_fact:
-    container_mac: "{{ container_mac_result.stdout }}"
-  tags: unify
-
-- name: "Erstelle MongoDB-Registrierungs-Skript"
+- name: "Erstelle individualisiertes UniFi-Script"
   template:
-    src: unify_register.js.j2
-    dest: /tmp/unify_register_{{ container_id }}.js
+    src: unify_update_container.sh.j2
+    dest: /tmp/unify_update_{{ container_id }}.sh
+    mode: '0755'
+  when: container_mac_result.stdout != ""
+  tags: unify
+
+- name: "Kopiere Script direkt zum UniFi Controller"
+  template:
+    src: unify_update_container.sh.j2
+    dest: /tmp/unify_update_{{ container_id }}.sh
+    mode: '0755'
   delegate_to: unify
-  become: false
+  when: container_mac_result.stdout != ""
   tags: unify
 
-- name: "Registriere MAC-Adresse im Unify Controller"
-  shell: "mongo --port 27117 /tmp/unify_register_{{ container_id }}.js"
+- name: "Führe UniFi-Registrierung aus"
+  shell: "/tmp/unify_update_{{ container_id }}.sh"
   delegate_to: unify
-  become: false
-  register: unify_registration_result
+  register: unify_update_result
+  when: container_mac_result.stdout != ""
   tags: unify
 
-- name: "Debug: Unify Registration Ergebnis"
-  debug:
-    msg: |
-      Unify Registration:
-      - MAC: {{ container_mac }}
-      - Name: {{ container_hostname }}
-      - Ergebnis: {{ unify_registration_result.stdout }}
-  when: enable_debug | default(false)
-  tags: unify
-
-- name: "Bereinige temporaeres Skript"
+- name: "Räume lokales temporäres Script auf"
   file:
-    path: /tmp/unify_register_{{ container_id }}.js
+    path: /tmp/unify_update_{{ container_id }}.sh
+    state: absent
+  when: container_mac_result.stdout != ""
+  tags: unify
+
+- name: "Räume remote temporäres Script auf"
+  file:
+    path: /tmp/unify_update_{{ container_id }}.sh
     state: absent
   delegate_to: unify
-  become: false
+  when: container_mac_result.stdout != ""
+  tags: unify
+
+- name: "UniFi-Registrierung erfolgreich"
+  debug:
+    msg: "Container {{ container_hostname }} mit MAC {{ container_mac_result.stdout }} registriert"
+  when:
+    - container_mac_result.stdout != ""
+    - unify_update_result is defined
+    - unify_update_result.rc == 0
   tags: unify

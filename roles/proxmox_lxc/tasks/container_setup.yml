@@ -1,0 +1,47 @@
+---
+# Container Post-Deployment Setup für Debian
+- name: "Warte kurz nach UniFi-Neustart"
+  pause:
+    seconds: 30
+  when: 
+    - unifi_update_result is defined
+    - unifi_update_result.rc == 0
+  tags: setup
+
+- name: "Update Package Cache"
+  shell: "pct exec {{ container_id }} -- apt update"
+  register: apt_update_result
+  tags: setup
+
+- name: "Upgrade All Packages"
+  shell: "pct exec {{ container_id }} -- apt upgrade -y"
+  register: apt_upgrade_result
+  tags: setup
+
+- name: "Install German Locales Package"
+  shell: "pct exec {{ container_id }} -- apt install -y locales"
+  tags: setup
+
+- name: "Configure German Locale in /etc/locale.gen"
+  shell: "pct exec {{ container_id }} -- sed -i 's/# de_DE.UTF-8 UTF-8/de_DE.UTF-8 UTF-8/' /etc/locale.gen"
+  tags: setup
+
+- name: "Generate German Locale"
+  shell: "pct exec {{ container_id }} -- locale-gen"
+  tags: setup
+
+- name: "Set German as Default Locale"
+  shell: "pct exec {{ container_id }} -- update-locale LANG=de_DE.UTF-8"
+  tags: setup
+
+- name: "Set Timezone to Europe/Berlin"
+  shell: "pct exec {{ container_id }} -- ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime"
+  tags: setup
+
+# console-setup entfernt - verursacht Hänger in LXC
+
+- name: "Container-Setup abgeschlossen"
+  debug:
+    msg: "Container {{ container_id }} wurde aktualisiert und auf deutsche Sprache konfiguriert"
+  tags: setup
+

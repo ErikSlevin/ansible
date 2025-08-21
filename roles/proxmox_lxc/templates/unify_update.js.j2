@@ -1,0 +1,7 @@
+// Ansible managed - Unify Controller MAC Registration
+db.user.update(
+  {"mac": "{{ container_mac_result.stdout | upper }}"},
+  {"$set": {"name": "{{ container_hostname }}"}},
+  {multi: true}
+);
+print("Updated MAC {{ container_mac_result.stdout | upper }} with name {{ container_hostname }}");
