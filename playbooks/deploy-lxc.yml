@@ -2,5 +2,7 @@
   hosts: proxmox
   become: yes
   gather_facts: no
+  vars_files:
+    - ../group_vars/all/vault.yml
   roles:
     - proxmox_lxc

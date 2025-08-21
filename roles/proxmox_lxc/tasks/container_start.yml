@@ -14,6 +14,12 @@
   delay: "{{ container_start_delay }}"
   tags: start
 
+# Root-Passwort setzen
+- name: "Setze Root Passwort im Container"
+  shell: |
+    pct exec {{ container_id }} -- bash -c "echo 'root:{{ container_password }}' | chpasswd"
+  tags: passwd
+
 - name: "Ermittle Container-IP-Adresse"
   shell: "pct exec {{ container_id }} -- ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1 | head -1"
   register: container_ip_result

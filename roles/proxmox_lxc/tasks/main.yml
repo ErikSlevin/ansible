@@ -25,3 +25,10 @@
     - start
     - container
     - info
+
+- name: "Unify Network Registration"
+  include_tasks: unify_registration.yml
+  when: unify_registration_enabled | default(false)
+  tags:
+    - unify
+    - network

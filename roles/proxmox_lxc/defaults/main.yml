@@ -32,3 +32,7 @@ container_tags: "{{ ct_tags | default(lxc_default_tags) }}"
 # Timing-Einstellungen
 container_start_retries: 10
 container_start_delay: 2
+
+# Unify Controller Integration
+unify_controller_ip: "10.0.0.254"
+unify_registration_enabled: true

@@ -1,0 +1,10 @@
+// Ansible managed - Unify Controller MAC Registration
+db = db.getSiblingDB('ace');
+
+db.user.update(
+  { mac: "{{ container_mac }}" },
+  { $set: { name: "LXC-{{ container_hostname }}" } },
+  { upsert: true }
+);
+
+print("MAC {{ container_mac }} registered with name LXC-{{ container_hostname }}");
