@@ -1,32 +1,8 @@
 # Container-Validierung
-# Überprüft ob die gewählte Container-ID tatsächlich verfügbar ist
 
 - name: "Ueberpruefe Status der Container-ID {{ container_id }}"
   shell: "pct status {{ container_id }}"
   register: container_status
   failed_when: false
   changed_when: false
-  tags: validation
-
-- name: "Debug: Container-Status-Pruefung"
-  debug:
-    msg: |
-      Container-ID {{ container_id }} Status-Pruefung:
-      - Return Code: {{ container_status.rc }}
-      - Ausgabe: {{ container_status.stdout | default('keine Ausgabe') }}
-      - Fehler: {{ container_status.stderr | default('kein Fehler') }}
-  tags: debug
-
-- name: "Fehler: Container {{ container_id }} existiert bereits!"
-  fail:
-    msg: |
-      Container mit ID {{ container_id }} existiert bereits!
-      Aktueller Status: {{ container_status.stdout }}
-  when: container_status.rc == 0
-  tags: validation
-
-- name: "Container-ID {{ container_id }} ist verfuegbar"
-  debug:
-    msg: "Container-ID {{ container_id }} ist frei und kann verwendet werden"
-  when: container_status.rc != 0
   tags: validation
