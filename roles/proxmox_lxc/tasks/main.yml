@@ -44,6 +44,13 @@
     - setup
     - post_deploy
 
+- name: "SSH Banner Setup"
+  include_tasks: ssh_banner_setup.yml
+  when: container_setup_enabled | default(true)
+  tags:
+    - ssh_banner
+    - security
+    - post_deploy
 
 - name: "Manual UniFi Registration Info"
   include_tasks: unify_manual.yml

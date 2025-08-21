@@ -32,7 +32,9 @@
           {upsert: true}
         );
         db.user.find({"mac": "{{ container_mac_result.stdout | lower }}"}).pretty();
-      '\''' && service unifi restart
+      '\'''
+
+      ssh unifi service unifi restart
 
   when: container_mac_result.stdout != ""
   tags: unify_manual
