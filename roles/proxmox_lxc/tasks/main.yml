@@ -3,30 +3,47 @@
 
 - name: "Vorbereitung und Validierung"
   block:
-    - name: "Container-ID Management"
-      include_tasks: id_management.yml
-    - name: "Container-Validierung"
-      include_tasks: validation.yml
+    - include_tasks: id_management.yml
+    - include_tasks: validation.yml
 
 - name: "Container Deployment"
   block:
-    - name: "Container-Erstellung"
-      include_tasks: container_create.yml
-    - name: "Container-Start und Info"
-      include_tasks: container_start.yml
+    - include_tasks: container_create.yml
+    - include_tasks: container_start.yml
+  rescue:
+    - name: "Container bei Fehler aufräumen"
+      shell: "pct destroy {{ container_id }} --force"
+      ignore_errors: true
+      when: container_id is defined
 
 - name: "Container Konfiguration"
   block:
-    - name: "Container Setup"
-      include_tasks: container_setup.yml
+    - include_tasks: container_setup.yml
       when: container_setup_enabled | default(true)
 
 - name: "SSH Konfiguration"
   block:
-    - name: "SSH Banner Setup"
-      include_tasks: ssh_banner_setup.yml
+    - include_tasks: ssh_banner_setup.yml
       when: container_setup_enabled | default(true)
 
 - name: "Manual UniFi Registration Info"
   include_tasks: unify_manual.yml
   when: show_unify_commands | default(true)
+
+- name: "✅ Deployment abgeschlossen"
+  debug:
+    msg: |
+
+      ═══════════════════════════════════════════════════════════════
+      🎉 CONTAINER ERFOLGREICH ERSTELLT!
+      ═══════════════════════════════════════════════════════════════
+
+      📦 Container-ID: {{ container_id }}
+      🏷️  Hostname: {{ container_hostname | default('auto-container') }}
+      🌐 MAC-Adresse: {{ container_mac_result.stdout | default('ermitteln...') }}
+
+      🔗 UniFi-Registrierung:
+      ssh unifi 'mongo --port 27117 ace --eval "db.user.update({\"mac\": \"{{ container_mac_result.stdout | lower }}\"},{\"\$set\":{\"name\":\"LXC-{{ container_hostname }}\"}},{upsert:true})"'
+
+  vars:
+    container_mac_result: "{{ hostvars[inventory_hostname].container_mac_result | default({'stdout': 'unbekannt'}) }}"

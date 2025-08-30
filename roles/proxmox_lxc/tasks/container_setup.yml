@@ -1,28 +1,19 @@
 ---
 # Container Post-Deployment Setup für Debian
 - name: "Update Package Cache"
-  shell: "pct exec {{ container_id }} -- apt update"
+  shell: "pct exec {{ container_id }} -- apt-get update"
   register: apt_update_result
 
 - name: "Upgrade All Packages"
-  shell: "pct exec {{ container_id }} -- apt upgrade -y"
+  shell: "pct exec {{ container_id }} -- apt-get upgrade -y"
   register: apt_upgrade_result
 
 - name: "Install German Locales Package"
-  shell: "pct exec {{ container_id }} -- apt install -y locales"
+  shell: "pct exec {{ container_id }} -- apt-get install -y locales"
 
-- name: "Configure German Locale in /etc/locale.gen"
-  shell: "pct exec {{ container_id }} -- sed -i 's/# de_DE.UTF-8 UTF-8/de_DE.UTF-8 UTF-8/' /etc/locale.gen"
-
-- name: "Generate German Locale"
-  shell: "pct exec {{ container_id }} -- locale-gen"
-
-- name: "Set German as Default Locale"
-  shell: "pct exec {{ container_id }} -- update-locale LANG=de_DE.UTF-8"
-
-- name: "Set Timezone to Europe/Berlin"
-  shell: "pct exec {{ container_id }} -- ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime"
-
-- name: "Container-Setup abgeschlossen"
-  debug:
-    msg: "Container {{ container_id }} wurde aktualisiert und auf deutsche Sprache konfiguriert"
+- name: "Deutsche Sprache und Zeit konfigurieren"
+  shell: |
+    pct exec {{ container_id }} -- sed -i 's/# de_DE.UTF-8 UTF-8/de_DE.UTF-8 UTF-8/' /etc/locale.gen
+    pct exec {{ container_id }} -- locale-gen
+    pct exec {{ container_id }} -- update-locale LANG=de_DE.UTF-8
+    pct exec {{ container_id }} -- ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
