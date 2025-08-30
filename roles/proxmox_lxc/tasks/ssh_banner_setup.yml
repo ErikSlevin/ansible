@@ -5,26 +5,21 @@
     src: ssh_banner.txt.j2
     dest: /tmp/ssh_banner_{{ container_id }}.txt
     mode: '0644'
-  tags: ssh_banner
 
 - name: "SSH Banner in Container kopieren"
   shell: "pct push {{ container_id }} /tmp/ssh_banner_{{ container_id }}.txt /etc/ssh/ssh_banner.txt"
-  tags: ssh_banner
 
 - name: "Temporäre Banner-Datei löschen"
   file:
     path: /tmp/ssh_banner_{{ container_id }}.txt
     state: absent
-  tags: ssh_banner
 
 - name: "SSH Daemon Konfiguration für Banner anpassen"
   shell: |
     pct exec {{ container_id }} -- sed -i 's/#Banner none/Banner \/etc\/ssh\/ssh_banner.txt/' /etc/ssh/sshd_config
-  tags: ssh_banner
 
 - name: "SSH Service im Container neu starten"
   shell: "pct exec {{ container_id }} -- systemctl restart ssh"
-  tags: ssh_banner
 
 - name: "SSH Banner erfolgreich konfiguriert"
   assert:

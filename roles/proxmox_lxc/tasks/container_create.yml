@@ -13,4 +13,3 @@
       --unprivileged 1 \
       --tags {{ container_tags }}
   register: container_create_result
-  tags: create

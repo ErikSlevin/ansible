@@ -5,7 +5,6 @@
   shell: "pct config {{ container_id }} | grep -E '^net0:' | grep -o 'hwaddr=[^,]*' | cut -d= -f2"
   register: container_mac_result
   changed_when: false
-  tags: unify_manual
 
 - name: "Zeige fertigen UniFi-Registrierungs-Befehl"
   debug:
@@ -37,4 +36,3 @@
       ssh unifi service unifi restart
 
   when: container_mac_result.stdout != ""
-  tags: unify_manual

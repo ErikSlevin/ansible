@@ -1,49 +1,32 @@
 # Hauptsteuerung der proxmox_lxc Rolle
 # Ruft alle Teilaufgaben in der korrekten Reihenfolge auf
 
-- name: "Container-ID Management"
-  include_tasks: id_management.yml
-  tags:
-    - id_management
-    - always
+- name: "Vorbereitung und Validierung"
+  block:
+    - name: "Container-ID Management"
+      include_tasks: id_management.yml
+    - name: "Container-Validierung"
+      include_tasks: validation.yml
 
-- name: "Container-Validierung"
-  include_tasks: validation.yml
-  tags:
-    - validation
-    - always
+- name: "Container Deployment"
+  block:
+    - name: "Container-Erstellung"
+      include_tasks: container_create.yml
+    - name: "Container-Start und Info"
+      include_tasks: container_start.yml
 
-- name: "Container-Erstellung"
-  include_tasks: container_create.yml
-  tags:
-    - create
-    - container
+- name: "Container Konfiguration"
+  block:
+    - name: "Container Setup"
+      include_tasks: container_setup.yml
+      when: container_setup_enabled | default(true)
 
-- name: "Container-Start und Info"
-  include_tasks: container_start.yml
-  tags:
-    - start
-    - container
-    - info
-
-- name: "Container Setup"
-  include_tasks: container_setup.yml
-  when: container_setup_enabled | default(true)
-  tags:
-    - setup
-    - post_deploy
-
-- name: "SSH Banner Setup"
-  include_tasks: ssh_banner_setup.yml
-  when: container_setup_enabled | default(true)
-  tags:
-    - ssh_banner
-    - security
-    - post_deploy
+- name: "SSH Konfiguration"
+  block:
+    - name: "SSH Banner Setup"
+      include_tasks: ssh_banner_setup.yml
+      when: container_setup_enabled | default(true)
 
 - name: "Manual UniFi Registration Info"
   include_tasks: unify_manual.yml
   when: show_unify_commands | default(true)
-  tags:
-    - unify_manual
-    - info
