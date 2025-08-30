@@ -1,19 +1,23 @@
 ---
 # Container Post-Deployment Setup für Debian
-- name: "Update Package Cache"
-  shell: "pct exec {{ container_id }} -- apt-get update"
-  register: apt_update_result
-
-- name: "Upgrade All Packages"
-  shell: "pct exec {{ container_id }} -- apt-get upgrade -y"
-  register: apt_upgrade_result
-
-- name: "Install German Locales Package"
-  shell: "pct exec {{ container_id }} -- apt-get install -y locales"
-
-- name: "Deutsche Sprache und Zeit konfigurieren"
+- name: "System-Setup läuft"
   shell: |
-    pct exec {{ container_id }} -- sed -i 's/# de_DE.UTF-8 UTF-8/de_DE.UTF-8 UTF-8/' /etc/locale.gen
-    pct exec {{ container_id }} -- locale-gen
-    pct exec {{ container_id }} -- update-locale LANG=de_DE.UTF-8
-    pct exec {{ container_id }} -- ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
+    pct exec {{ container_id }} -- bash -c '
+    export DEBIAN_FRONTEND=noninteractive
+    export APT_LISTCHANGES_FRONTEND=none
+    export LC_ALL=C
+
+    apt-get -qq update &&
+    apt-get -qq upgrade -y &&
+    apt-get -qq install -y locales &&
+
+    echo "de_DE.UTF-8 UTF-8" >> /etc/locale.gen &&
+    locale-gen de_DE.UTF-8 &&
+    update-locale LANG=de_DE.UTF-8 LC_ALL=de_DE.UTF-8 &&
+
+    ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime &&
+    echo "Europe/Berlin" > /etc/timezone
+    '
+  register: setup_result
+  changed_when: setup_result.rc == 0
+  failed_when: setup_result.rc != 0

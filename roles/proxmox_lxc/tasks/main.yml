@@ -29,21 +29,3 @@
 - name: "Manual UniFi Registration Info"
   include_tasks: unify_manual.yml
   when: show_unify_commands | default(true)
-
-- name: "✅ Deployment abgeschlossen"
-  debug:
-    msg: |
-
-      ═══════════════════════════════════════════════════════════════
-      🎉 CONTAINER ERFOLGREICH ERSTELLT!
-      ═══════════════════════════════════════════════════════════════
-
-      📦 Container-ID: {{ container_id }}
-      🏷️  Hostname: {{ container_hostname | default('auto-container') }}
-      🌐 MAC-Adresse: {{ container_mac_result.stdout | default('ermitteln...') }}
-
-      🔗 UniFi-Registrierung:
-      ssh unifi 'mongo --port 27117 ace --eval "db.user.update({\"mac\": \"{{ container_mac_result.stdout | lower }}\"},{\"\$set\":{\"name\":\"LXC-{{ container_hostname }}\"}},{upsert:true})"'
-
-  vars:
-    container_mac_result: "{{ hostvars[inventory_hostname].container_mac_result | default({'stdout': 'unbekannt'}) }}"

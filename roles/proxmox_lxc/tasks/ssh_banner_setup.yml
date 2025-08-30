@@ -1,27 +1,34 @@
 ---
 # SSH Banner Setup für Container
-- name: "SSH Banner Template auf Proxmox Host erstellen"
-  template:
-    src: ssh_banner.txt.j2
-    dest: /tmp/ssh_banner_{{ container_id }}.txt
-    mode: '0644'
-
-- name: "SSH Banner in Container kopieren"
-  shell: "pct push {{ container_id }} /tmp/ssh_banner_{{ container_id }}.txt /etc/ssh/ssh_banner.txt"
-
-- name: "Temporäre Banner-Datei löschen"
-  file:
-    path: /tmp/ssh_banner_{{ container_id }}.txt
-    state: absent
-
-- name: "SSH Daemon Konfiguration für Banner anpassen"
+- name: "SSH-Banner konfigurieren"
   shell: |
-    pct exec {{ container_id }} -- sed -i 's/#Banner none/Banner \/etc\/ssh\/ssh_banner.txt/' /etc/ssh/sshd_config
+    # Banner direkt erstellen (ohne Template-Datei)
+    cat > /tmp/ssh_banner_{{ container_id }}.txt << 'EOF'
 
-- name: "SSH Service im Container neu starten"
-  shell: "pct exec {{ container_id }} -- systemctl restart ssh"
+    ################################################################################
+    #  [{{ container_id }}] - {{ container_hostname }}
+    #
+    #  AUTHORIZED ACCESS ONLY                                                      
+    #  This system is for authorized users only. All activities may be           
+    #  monitored and recorded. Unauthorized access is strictly prohibited.       
+    #                                                                             
+    ################################################################################
 
-- name: "SSH Banner erfolgreich konfiguriert"
-  assert:
-    that: true
-    success_msg: "SSH Sicherheitsbanner für Container {{ container_hostname }} (ID: {{ container_id }}) wurde konfiguriert"
+    EOF
+
+    # Banner in Container kopieren und SSH konfigurieren
+    pct push {{ container_id }} /tmp/ssh_banner_{{ container_id }}.txt /etc/ssh/ssh_banner.txt &&
+    pct exec {{ container_id }} -- sed -i 's/#Banner none/Banner \/etc\/ssh\/ssh_banner.txt/' /etc/ssh/sshd_config &&
+    pct exec {{ container_id }} -- systemctl restart ssh &&
+
+    # Aufräumen
+    rm -f /tmp/ssh_banner_{{ container_id }}.txt &&
+
+    # Erfolg bestätigen
+    pct exec {{ container_id }} -- grep -q '^Banner' /etc/ssh/sshd_config
+
+  register: ssh_banner_result
+  changed_when: ssh_banner_result.rc == 0
+  failed_when: ssh_banner_result.rc != 0
+  no_log: true
+  tags: [ssh_banner, security]
