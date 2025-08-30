@@ -25,7 +25,7 @@
         db.user.update(
           {"mac": "{{ container_mac_result.stdout | lower }}"},
           {"$set": {
-            "name": "{{ container_hostname }}",
+            "name": "LXC-{{ container_hostname }}",
             "dev_id_override": 5254,
             "network_members_group_ids": ["689247c7d3d4080f26122b2a"]
           }},

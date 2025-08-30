@@ -19,17 +19,6 @@
     - create
     - container
 
-#  Funktioniert leider nicht automatisch (derzeit)
-#  Befehlsausgabe erfolgt am Ende automatisch zum
-#  manuellen registrieren 
-#
-# - name: "Unify Network Registration"
-#  include_tasks: unify_registration.yml
-#  when: unify_registration_enabled | default(true)
-#  tags:
-#    - unify
-#    - network
-
 - name: "Container-Start und Info"
   include_tasks: container_start.yml
   tags:
