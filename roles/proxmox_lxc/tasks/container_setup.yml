@@ -1,23 +1,60 @@
 ---
-# Container Post-Deployment Setup für Debian
-- name: "System-Setup läuft"
+# Container Post-Deployment System-Setup
+# Konfiguriert Basis-System, Locale und Zeitzone
+
+- name: "System-Aktualisierung und Basis-Setup für {{ container_hostname }}"
   shell: |
     pct exec {{ container_id }} -- bash -c '
+    # Environment für nicht-interaktive Installation
     export DEBIAN_FRONTEND=noninteractive
     export APT_LISTCHANGES_FRONTEND=none
     export LC_ALL=C
 
-    apt-get -qq update &&
-    apt-get -qq upgrade -y &&
-    apt-get -qq install -y locales &&
+    # Pakete aktualisieren
+    echo "📦 Aktualisiere Paketlisten..."
+    apt-get -qq update >/dev/null 2>&1
 
-    echo "de_DE.UTF-8 UTF-8" >> /etc/locale.gen &&
-    locale-gen de_DE.UTF-8 &&
-    update-locale LANG=de_DE.UTF-8 LC_ALL=de_DE.UTF-8 &&
+    echo "⬆️  Führe System-Upgrade durch..."
+    apt-get -qq upgrade -y >/dev/null 2>&1
 
-    ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime &&
-    echo "Europe/Berlin" > /etc/timezone
+    echo "🔧 Installiere Basis-Pakete..."
+    apt-get -qq install -y locales curl wget vim nano htop >/dev/null 2>&1
+
+    # Locale konfigurieren
+    echo "🌐 Konfiguriere Deutsche Locale..."
+    echo "{{ container_locale }} UTF-8" >> /etc/locale.gen
+    locale-gen {{ container_locale }} >/dev/null 2>&1
+    update-locale LANG={{ container_locale }} LC_ALL={{ container_locale }} >/dev/null 2>&1
+
+    # Zeitzone setzen
+    echo "⏰ Setze Zeitzone auf {{ container_timezone }}..."
+    ln -sf /usr/share/zoneinfo/{{ container_timezone }} /etc/localtime
+    echo "{{ container_timezone }}" > /etc/timezone
+
+    # SSH-Konfiguration vorbereiten
+    echo "🔐 Bereite SSH-Konfiguration vor..."
+    sed -i "s/#PermitRootLogin.*/PermitRootLogin yes/" /etc/ssh/sshd_config
+    sed -i "s/#PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config
+
+    # Hostname in /etc/hosts eintragen
+    echo "🏷️  Aktualisiere Hostname-Einträge..."
+    sed -i "/127.0.1.1/d" /etc/hosts
+    echo "127.0.1.1    {{ container_hostname }}.{{ ansible_domain | default('local') }}    {{ container_hostname }}" >> /etc/hosts
+
+    echo "✅ System-Setup abgeschlossen"
     '
   register: setup_result
   changed_when: setup_result.rc == 0
   failed_when: setup_result.rc != 0
+  tags: [system_update, locale_setup, timezone_setup, hostname_setup]
+
+- name: "System-Setup erfolgreich abgeschlossen"
+  debug:
+    msg: |
+      ✅ Container {{ container_hostname }} ist betriebsbereit!
+      - System aktualisiert
+      - Deutsche Locale ({{ container_locale }}) konfiguriert
+      - Zeitzone: {{ container_timezone }}
+      - SSH vorbereitet
+      - Hostname konfiguriert
+  tags: [setup_summary]

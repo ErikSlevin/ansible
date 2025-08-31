@@ -1,31 +1,61 @@
+---
 # Hauptsteuerung der proxmox_lxc Rolle
-# Ruft alle Teilaufgaben in der korrekten Reihenfolge auf
+# Erstellt und konfiguriert LXC Container auf Proxmox VE
 
 - name: "Vorbereitung und Validierung"
   block:
-    - include_tasks: id_management.yml
-    - include_tasks: validation.yml
+    - name: "Schritt 1: Container-ID-Management"
+      include_tasks: id_management.yml
+      tags: [preparation, id_management]
 
-- name: "Container Deployment"
+    - name: "Schritt 2: Validierung der Container-ID"
+      include_tasks: validation.yml
+      tags: [preparation, validation]
+
+- name: "Container-Erstellung"
   block:
-    - include_tasks: container_create.yml
-    - include_tasks: container_start.yml
+    - name: "Schritt 3: LXC Container erstellen"
+      include_tasks: container_create.yml
+      tags: [deployment, container_create]
+
+    - name: "Schritt 4: Container starten und überwachen"
+      include_tasks: container_start.yml
+      tags: [deployment, container_start]
   rescue:
-    - name: "Container bei Fehler aufräumen"
+    - name: "Fehlerbehandlung: Container bei Problemen entfernen"
       shell: "pct destroy {{ container_id }} --force"
       ignore_errors: true
       when: container_id is defined
+      tags: [cleanup]
 
-- name: "Container Konfiguration"
+- name: "Post-Deployment Konfiguration"
   block:
-    - include_tasks: container_setup.yml
+    - name: "Schritt 5: Basis-System konfigurieren"
+      include_tasks: container_setup.yml
       when: container_setup_enabled | default(true)
+      tags: [configuration, system_setup]
 
-- name: "SSH Konfiguration"
+    - name: "Schritt 6: SSH-Banner einrichten"
+      include_tasks: ssh_banner_setup.yml
+      when: container_setup_enabled | default(true)
+      tags: [configuration, ssh_setup, security]
+
+- name: "UniFi-Integration"
   block:
-    - include_tasks: ssh_banner_setup.yml
-      when: container_setup_enabled | default(true)
+    - name: "Schritt 7: UniFi-Registrierung vorbereiten"
+      include_tasks: unify_manual.yml
+      when: show_unify_commands | default(true)
+      tags: [unifi, manual_commands]
 
-- name: "Manual UniFi Registration Info"
-  include_tasks: unify_manual.yml
-  when: show_unify_commands | default(true)
+- name: "Deployment-Zusammenfassung anzeigen"
+  debug:
+    msg: |
+      =====================================
+      CONTAINER ERFOLGREICH ERSTELLT
+      =====================================
+      Container-ID: {{ container_id }}
+      Hostname: {{ container_hostname }}
+      VLAN: {{ container_vlan }}
+      Status: Läuft und konfiguriert
+      =====================================
+  tags: [summary]

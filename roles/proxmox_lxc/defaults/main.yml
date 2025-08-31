@@ -1,43 +1,52 @@
-# Debug-Ausgaben standardmäßig deaktivieren
-enable_debug: false
+---
+# =============================================================================
+# PROXMOX LXC ROLLE - STANDARD-KONFIGURATION
+# =============================================================================
 
-# Container ID Management
-# Bereich fuer automatische ID-Vergabe
+# Debug und Logging
+enable_debug: false
+show_unify_commands: true
+
+# Container-ID Management
 lxc_id_range_start: 100
 lxc_id_range_end: 999
 
 # Standard-Container-Konfiguration
-# Diese Werte werden verwendet, wenn nichts anderes angegeben wird
-lxc_default_template: "synology:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
-lxc_default_storage: "local-lvm"
-lxc_default_cores: 2
-lxc_default_memory: 2048
-lxc_default_rootfs: 10
-lxc_default_vlan: 20
-lxc_default_tags: "prod"
-lxc_default_hostname: "auto-container"
+lxc_defaults:
+  template: "synology:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+  storage: "local-lvm"
+  cores: 2
+  memory: 2048
+  rootfs_size: 10
+  vlan: 20
+  ip: "dhcp"
+  tags: "lxc,managed"
 
-# Container-Parameter (diese koennen ueberschrieben werden)
-# Hier werden die Eingabe-Parameter mit Fallback-Werten verknuepft
-container_hostname: "{{ ct_hostname | default(lxc_default_hostname) }}"
-container_template: "{{ ct_template | default(lxc_default_template) }}"
-container_storage: "{{ ct_storage | default(lxc_default_storage) }}"
-container_cores: "{{ ct_cores | default(lxc_default_cores) }}"
-container_memory: "{{ ct_memory | default(lxc_default_memory) }}"
-container_rootfs_size: "{{ ct_rootfs | default(lxc_default_rootfs) }}"
-container_vlan: "{{ ct_vlan | default(lxc_default_vlan) }}"
-container_ip: "{{ ct_ip | default('dhcp') }}"
-container_tags: "{{ ct_tags | default(lxc_default_tags) }}"
+# Container-Parameter (mit Fallback zu Defaults)
+container_hostname: "{{ ct_hostname | default('lxc-' + (ct_id | default('auto'))) }}"
+container_template: "{{ ct_template | default(lxc_defaults.template) }}"
+container_storage: "{{ ct_storage | default(lxc_defaults.storage) }}"
+container_cores: "{{ ct_cores | default(lxc_defaults.cores) }}"
+container_memory: "{{ ct_memory | default(lxc_defaults.memory) }}"
+container_rootfs_size: "{{ ct_rootfs | default(lxc_defaults.rootfs_size) }}"
+container_vlan: "{{ ct_vlan | default(lxc_defaults.vlan) }}"
+container_ip: "{{ ct_ip | default(lxc_defaults.ip) }}"
+container_tags: "{{ ct_tags | default(lxc_defaults.tags) }}"
+container_password: "{{ ct_password | default(vault_default_root_password | default('ChangeMe123!')) }}"
 
-# Timing-Einstellungen
-container_start_retries: 10
-container_start_delay: 2
+# Container-Startup Konfiguration
+container_start_retries: 15
+container_start_delay: 3
 
-# Unify Controller Integration
-unify_controller_ip: "10.0.0.254"
-unify_registration_enabled: true
-
-# Container Setup
+# System-Setup Konfiguration
 container_setup_enabled: true
 container_timezone: "Europe/Berlin"
 container_locale: "de_DE.UTF-8"
+
+# UniFi Controller Integration
+unify_controller_host: "{{ groups['controller'][0] | default('10.0.0.254') }}"
+unify_site_id: "5f4a34e0a7986c0ea415ca25"
+
+# Sicherheits-Einstellungen
+security_ssh_banner_enabled: true
+security_ssh_hardening_enabled: true

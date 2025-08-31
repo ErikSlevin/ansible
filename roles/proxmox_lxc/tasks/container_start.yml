@@ -1,29 +1,62 @@
-# Container-Start und Status-Ueberwachung
-# Startet den Container und wartet, bis er vollstaendig betriebsbereit (bleibt)
+---
+# Container-Start und Überwachung
+# Startet Container und wartet auf vollständige Betriebsbereitschaft
 
-- name: "Starte Container {{ container_id }}"
+- name: "Starte Container {{ container_id }} ({{ container_hostname }})"
   shell: "pct start {{ container_id }}"
   register: container_start_result
+  tags: [container_start]
 
-- name: "Warte bis Container vollstaendig gestartet ist"
+- name: "Warte auf Container-Start (max {{ container_start_retries * container_start_delay }}s)"
   shell: "pct status {{ container_id }}"
-  register: status_check
-  until: "'running' in status_check.stdout"
+  register: startup_status_check
+  until: "'running' in startup_status_check.stdout"
   retries: "{{ container_start_retries }}"
   delay: "{{ container_start_delay }}"
+  tags: [startup_wait]
 
-# Root-Passwort setzen
-- name: "Setze Root Passwort im Container"
+- name: "Warte auf Netzwerk-Initialisierung"
+  pause:
+    seconds: 5
+    prompt: "Warte auf Netzwerk-Setup im Container..."
+  tags: [network_wait]
+
+- name: "Setze sicheres Root-Passwort"
   shell: |
     pct exec {{ container_id }} -- bash -c "echo 'root:{{ container_password }}' | chpasswd"
+  register: password_result
+  no_log: true
+  tags: [password_setup, security]
 
 - name: "Ermittle Container-IP-Adresse"
-  shell: "pct exec {{ container_id }} -- ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1 | head -1"
+  shell: |
+    pct exec {{ container_id }} -- ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1 | head -1
   register: container_ip_result
   failed_when: false
   changed_when: false
+  retries: 3
+  delay: 2
+  tags: [ip_detection]
 
-- name: "Sammle Container-Informationen"
-  shell: "pct list | grep {{ container_id }}"
+- name: "Ermittle Container-MAC-Adresse"
+  shell: |
+    pct config {{ container_id }} | grep -E '^net0:' | grep -o 'hwaddr=[^,]*' | cut -d= -f2
+  register: container_mac_result
+  changed_when: false
+  tags: [mac_detection]
+
+- name: "Sammle Container-Status-Informationen"
+  shell: "pct list | grep '^{{ container_id }} '"
   register: container_info
   changed_when: false
+  tags: [status_info]
+
+- name: "Container erfolgreich gestartet"
+  debug:
+    msg: |
+      ✅ Container {{ container_id }} läuft erfolgreich!
+      Hostname: {{ container_hostname }}
+      IP-Adresse: {{ container_ip_result.stdout | default('Nicht verfügbar') }}
+      MAC-Adresse: {{ container_mac_result.stdout | default('Nicht ermittelt') }}
+      Status: {{ container_info.stdout }}
+  tags: [start_summary]

@@ -1,0 +1,97 @@
+---
+- name: Delete LXC Containers on Proxmox
+  hosts: proxmox
+  become: yes
+  gather_facts: no
+  vars_prompt:
+    - name: container_ids_input
+      prompt: "Container-IDs (einzeln: 100, komma-separiert: 100,101,102, ranges: 100-105)"
+      private: no
+    - name: force_delete
+      prompt: "Force delete (auch laufende Container)? [y/N]"
+      private: no
+      default: "n"
+    - name: confirm_delete
+      prompt: "ACHTUNG: Diese Container werden PERMANENT geloescht! Fortfahren? [y/N]"
+      private: no
+      default: "n"
+
+  tasks:
+    - name: "Bestätigung prüfen"
+      fail:
+        msg: "Löschvorgang abgebrochen"
+      when: confirm_delete.lower() != 'y'
+
+    - name: "Parse Container-IDs"
+      set_fact:
+        container_ids: |
+          {%- set ids = [] -%}
+          {%- for part in container_ids_input.replace(' ', '').split(',') -%}
+            {%- if '-' in part -%}
+              {%- set range_parts = part.split('-') -%}
+              {%- if range_parts | length == 2 -%}
+                {%- for i in range(range_parts[0] | int, range_parts[1] | int + 1) -%}
+                  {%- set _ = ids.append(i) -%}
+                {%- endfor -%}
+              {%- endif -%}
+            {%- elif part | int > 0 -%}
+              {%- set _ = ids.append(part | int) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ ids | unique | sort }}
+
+    - name: "Zeige Container-IDs"
+      debug:
+        msg: "Zu löschende Container: {{ container_ids | join(', ') }}"
+
+    - name: "Prüfe Container-Existenz"
+      shell: "/usr/sbin/pct list | grep -E '^\\s*{{ item }}\\s'"
+      register: container_exists
+      loop: "{{ container_ids }}"
+      failed_when: false
+      changed_when: false
+
+    - name: "Filtere existierende Container"
+      set_fact:
+        existing_containers: |
+          {%- set existing = [] -%}
+          {%- for result in container_exists.results -%}
+            {%- if result.rc == 0 -%}
+              {%- set _ = existing.append(result.item) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ existing }}
+
+    - name: "Zeige nicht gefundene Container"
+      debug:
+        msg: "Nicht gefunden: {{ container_ids | difference(existing_containers) | join(', ') }}"
+      when: (container_ids | difference(existing_containers)) | length > 0
+
+    - name: "Stoppe Container falls nötig"
+      shell: |
+        status=$(/usr/sbin/pct status {{ item }} | awk '{print $2}')
+        if [ "$status" = "running" ]; then
+          echo "Stoppe Container {{ item }}..."
+          /usr/sbin/pct stop {{ item }}
+          sleep 3
+        fi
+      loop: "{{ existing_containers }}"
+      when: 
+        - existing_containers | length > 0
+        - force_delete.lower() == 'y'
+
+    - name: "Lösche Container"
+      shell: "/usr/sbin/pct destroy {{ item }} --purge{% if force_delete.lower() == 'y' %} --force{% endif %}"
+      register: delete_results
+      loop: "{{ existing_containers }}"
+      when: existing_containers | length > 0
+
+    - name: "Zeige Ergebnisse"
+      debug:
+        msg: |
+          LÖSCHVORGANG ABGESCHLOSSEN
+          ==========================
+          Eingabe: {{ container_ids_input }}
+          Gelöscht: {{ existing_containers | join(', ') if existing_containers | length > 0 else 'Keine' }}
+          Anzahl: {{ existing_containers | length }}
+      when: container_ids | length > 0

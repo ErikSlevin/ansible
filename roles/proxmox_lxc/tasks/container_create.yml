@@ -1,7 +1,37 @@
-# Container-Erstellung
-# Erstellt den LXC Container mit allen angegebenen Parametern
+---
+# Container-Erstellung mit dynamischen Parametern
+# Erstellt LXC Container mit allen konfigurierten Einstellungen
 
-- name: "Erstelle LXC Container {{ container_id }}"
+- name: "Bereite Container-Parameter vor"
+  set_fact:
+    # Dynamische Netzwerk-Konfiguration basierend auf IP-Typ
+    network_config: >-
+      {% if container_ip == 'dhcp' -%}
+      name=eth0,bridge=vmbr0,tag={{ container_vlan }},ip=dhcp
+      {%- else -%}
+      name=eth0,bridge=vmbr0,tag={{ container_vlan }},ip={{ container_ip }}/24,gw=10.{{ container_vlan }}.0.1
+      {%- endif %}
+    # Erweiterte Tags mit Metadaten (Proxmox-kompatibel)
+    extended_tags: "vlan{{ container_vlan }}"
+  tags: [parameter_preparation]
+
+- name: "Debug: Zeige Container-Parameter"
+  debug:
+    msg: |
+      Container-Konfiguration:
+      - ID: {{ container_id }}
+      - Hostname: {{ container_hostname }}
+      - Template: {{ container_template }}
+      - Cores: {{ container_cores }}
+      - Memory: {{ container_memory }}MB
+      - Rootfs: {{ container_rootfs_size }}GB
+      - Storage: {{ container_storage }}
+      - Network: {{ network_config }}
+      - Tags: {{ extended_tags }}
+  when: enable_debug | default(false)
+  tags: [debug_info]
+
+- name: "Erstelle LXC Container {{ container_id }} ({{ container_hostname }})"
   shell: |
     pct create {{ container_id }} {{ container_template }} \
       --hostname {{ container_hostname }} \
@@ -9,7 +39,27 @@
       --cores {{ container_cores }} \
       --memory {{ container_memory }} \
       --rootfs {{ container_storage }}:{{ container_rootfs_size }} \
-      --net0 name=eth0,bridge=vmbr0,tag={{ container_vlan }},ip={{ container_ip }}{% if container_ip != 'dhcp' %}/24,gw=10.{{ container_vlan }}.0.1{% endif %} \
+      --net0 {{ network_config }} \
       --unprivileged 1 \
-      --tags {{ container_tags }}
+      --onboot 0 \
+      --protection 0 \
+      --startup order=10,up=30 \
+      --tags "{{ extended_tags }}" \
+      --features nesting=1,keyctl=1
   register: container_create_result
+  tags: [container_creation]
+
+- name: "Validiere Container-Erstellung"
+  shell: "pct list | grep '^{{ container_id }} '"
+  register: creation_validation
+  failed_when: creation_validation.rc != 0
+  changed_when: false
+  tags: [creation_validation]
+
+- name: "Container-Erstellung erfolgreich"
+  debug:
+    msg: |
+      ✅ Container {{ container_id }} erfolgreich erstellt!
+      Hostname: {{ container_hostname }}
+      Status: Erstellt (gestoppt)
+  tags: [success_message]

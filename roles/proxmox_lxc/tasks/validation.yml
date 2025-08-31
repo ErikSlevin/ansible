@@ -1,7 +1,27 @@
-# Container-Validierung
+---
+# Container-ID Validierung
+# Überprüft ob Container-ID bereits existiert
 
-- name: "Ueberpruefe Status der Container-ID {{ container_id }}"
-  shell: "pct status {{ container_id }}"
-  register: container_status
+- name: "Validiere Container-ID {{ container_id }}"
+  shell: "pct status {{ container_id }} 2>/dev/null"
+  register: container_status_check
   failed_when: false
   changed_when: false
+  tags: [status_check]
+
+- name: "Container-ID Konflikt prüfen"
+  fail:
+    msg: |
+      ❌ FEHLER: Container mit ID {{ container_id }} existiert bereits!
+      Status: {{ container_status_check.stdout }}
+
+      Lösung:
+      - Verwende eine andere ID mit: -e ct_id=XXX
+      - Oder lösche existierenden Container: pct destroy {{ container_id }}
+  when: container_status_check.rc == 0
+  tags: [conflict_check]
+
+- name: "Validierung erfolgreich"
+  debug:
+    msg: "✅ Container-ID {{ container_id }} ist verfügbar"
+  tags: [validation_success]

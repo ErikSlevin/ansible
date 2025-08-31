@@ -1,34 +1,66 @@
 ---
-# SSH Banner Setup für Container
-- name: "SSH-Banner konfigurieren"
+# SSH-Banner Setup mit Sicherheitskonfiguration
+# Erstellt personalisierten SSH-Banner und härtet SSH-Konfiguration
+
+- name: "Erstelle SSH-Banner für {{ container_hostname }}"
   shell: |
-    # Banner direkt erstellen (ohne Template-Datei)
+    # Temporäres Banner erstellen
     cat > /tmp/ssh_banner_{{ container_id }}.txt << 'EOF'
 
     ################################################################################
-    #  [{{ container_id }}] - {{ container_hostname }}
     #
-    #  AUTHORIZED ACCESS ONLY                                                      
-    #  This system is for authorized users only. All activities may be           
-    #  monitored and recorded. Unauthorized access is strictly prohibited.       
-    #                                                                             
+    #  🖥️  PROXMOX LXC CONTAINER [{{ container_id }}] - {{ container_hostname }}
+    #
+    #  ⚠️  AUTORISIERTER ZUGANG ERFORDERLICH
+    #
+    #  Dieses System ist nur für autorisierte Benutzer bestimmt.
+    #  Alle Aktivitäten werden überwacht und protokolliert.
+    #  
+    #  Unbefugter Zugang ist strengstens untersagt und kann straf-
+    #  und zivilrechtliche Konsequenzen haben.
+    #
+    #  📅 Container erstellt: {{ ansible_date_time.date }}
+    #  🔗 VLAN: {{ container_vlan }}
+    #
     ################################################################################
 
     EOF
 
-    # Banner in Container kopieren und SSH konfigurieren
-    pct push {{ container_id }} /tmp/ssh_banner_{{ container_id }}.txt /etc/ssh/ssh_banner.txt &&
-    pct exec {{ container_id }} -- sed -i 's/#Banner none/Banner \/etc\/ssh\/ssh_banner.txt/' /etc/ssh/sshd_config &&
-    pct exec {{ container_id }} -- systemctl restart ssh &&
+    # Banner in Container kopieren
+    pct push {{ container_id }} /tmp/ssh_banner_{{ container_id }}.txt /etc/ssh/ssh_banner.txt
 
-    # Aufräumen
-    rm -f /tmp/ssh_banner_{{ container_id }}.txt &&
+    # SSH-Konfiguration anpassen
+    pct exec {{ container_id }} -- bash -c '
+    # Banner aktivieren
+    sed -i "s|#Banner.*|Banner /etc/ssh/ssh_banner.txt|" /etc/ssh/sshd_config
 
-    # Erfolg bestätigen
-    pct exec {{ container_id }} -- grep -q '^Banner' /etc/ssh/sshd_config
+    # Zusätzliche SSH-Härtung
+    sed -i "s|#ClientAliveInterval.*|ClientAliveInterval 300|" /etc/ssh/sshd_config
+    sed -i "s|#ClientAliveCountMax.*|ClientAliveCountMax 2|" /etc/ssh/sshd_config
+    sed -i "s|#MaxAuthTries.*|MaxAuthTries 3|" /etc/ssh/sshd_config
+    sed -i "s|#MaxSessions.*|MaxSessions 2|" /etc/ssh/sshd_config
 
+    # SSH-Service neu starten
+    systemctl restart ssh
+    systemctl enable ssh
+    '
+
+    # Temporäre Datei aufräumen
+    rm -f /tmp/ssh_banner_{{ container_id }}.txt
+
+    # Konfiguration validieren
+    pct exec {{ container_id }} -- grep -q "^Banner" /etc/ssh/sshd_config
   register: ssh_banner_result
   changed_when: ssh_banner_result.rc == 0
   failed_when: ssh_banner_result.rc != 0
-  no_log: true
-  tags: [ssh_banner, security]
+  tags: [ssh_banner, ssh_hardening, security]
+
+- name: "SSH-Banner und Sicherheit konfiguriert"
+  debug:
+    msg: |
+      ✅ SSH-Sicherheit für {{ container_hostname }} konfiguriert!
+      - Personalisierter Banner aktiviert
+      - SSH-Verbindungszeiten begrenzt
+      - Authentifizierungs-Versuche limitiert
+      - SSH-Service neu gestartet
+  tags: [ssh_summary]
