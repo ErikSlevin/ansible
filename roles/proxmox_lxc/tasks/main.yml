@@ -34,6 +34,11 @@
       when: container_setup_enabled | default(true)
       tags: [configuration, system_setup]
 
+    - name: "SSH-Konfiguration vom PVE Host übernehmen"
+      include_tasks: ssh_config_copy.yml
+      when: container_setup_enabled | default(true)
+      tags: [configuration, ssh_setup, security]
+
     - name: "SSH-Banner einrichten"
       include_tasks: ssh_banner_setup.yml
       when: container_setup_enabled | default(true)

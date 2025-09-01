@@ -51,5 +51,8 @@ unify_site_id: "5f4a34e0a7986c0ea415ca25"
 security_ssh_banner_enabled: true
 security_ssh_hardening_enabled: true
 
-# Schrittzaehler
-step_counter: 0
+# SSH-Konfiguration Features
+ssh_config_copy_from_host: true          # SSH-Config vom PVE Host kopieren
+ssh_hardening_from_host: true            # Security-Hardening übernehmen
+ssh_banner_create_custom: true           # Zusätzlichen Container-Banner erstellen
+ssh_preserve_host_banner: true           # Original-Banner vom Host behalten

@@ -1,0 +1,289 @@
+---
+# SSH-Konfiguration mit container-optimierter Security-Config
+
+- name: "Container SSH-Konfiguration vorbereiten"
+  shell: |
+    echo "Bereite SSH-Konfiguration vor..."
+
+    # SSH-Service stoppen
+    pct exec {{ container_id }} -- systemctl stop ssh || true
+
+    # Original-Config sichern
+    if ! pct exec {{ container_id }} -- test -f /etc/ssh/sshd_config.original; then
+      pct exec {{ container_id }} -- cp /etc/ssh/sshd_config /etc/ssh/sshd_config.original
+    fi
+
+    # SSH-Verzeichnisse erstellen
+    pct exec {{ container_id }} -- mkdir -p /run/sshd
+    pct exec {{ container_id }} -- chmod 755 /run/sshd
+
+    echo "Vorbereitung abgeschlossen"
+  tags: [ssh_preparation]
+
+- name: "Container-optimierte SSH-Konfiguration erstellen"
+  copy:
+    dest: "/tmp/sshd_config_{{ container_id }}"
+    content: |
+      # =============================================================================
+      # SSH SICHERHEITS-HÄRTUNG KONFIGURATION - CONTAINER VERSION 2025
+      # =============================================================================
+      # 
+      # Diese Konfiguration basiert auf dem PVE Host und ist für LXC Container
+      # optimiert. Sie stellt sicher, dass die gleichen Sicherheitsstandards
+      # wie auf dem Proxmox Host gelten, aber Container-Management ermöglicht.
+      #
+      # Container: {{ container_hostname }} (ID: {{ container_id }})
+      # VLAN: {{ container_vlan }}
+      # Erstellt: {{ ansible_date_time.iso8601 }}
+      # =============================================================================
+
+      # =============================================================================
+      # NETZWERK-KONFIGURATION
+      # =============================================================================
+
+      # SSH-Port - Gleicher Port wie PVE Host für Konsistenz
+      Port 62222
+
+      # Nur IPv4 verwenden (Container-optimiert)
+      AddressFamily inet
+
+      # Auf allen Interfaces lauschen
+      ListenAddress 0.0.0.0
+
+      # =============================================================================
+      # PROTOKOLL UND VERSCHLÜSSELUNG
+      # =============================================================================
+
+      # Nur SSH Protocol Version 2 (sicher)
+      Protocol 2
+
+      # Host-Schlüssel - Nur moderne, sichere Algorithmen
+      HostKey /etc/ssh/ssh_host_rsa_key      # RSA-4096 für Kompatibilität
+      HostKey /etc/ssh/ssh_host_ed25519_key  # Ed25519 für beste Sicherheit
+
+      # Schlüsselaustausch-Algorithmen - Nur elliptische Kurven und sichere DH
+      KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
+
+      # Verschlüsselungs-Algorithmen - Nur AEAD und moderne CTR-Modi
+      Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+
+      # Message Authentication Codes - Nur Encrypt-then-MAC (ETM)
+      MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com
+
+      # Öffentliche Schlüssel-Algorithmen
+      PubkeyAcceptedAlgorithms ssh-ed25519,ssh-rsa,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521
+
+      # =============================================================================
+      # AUTHENTIFIZIERUNG - CONTAINER-OPTIMIERT
+      # =============================================================================
+
+      # Root-Zugang - Für Container-Management und Ansible erforderlich
+      PermitRootLogin yes
+
+      # Erlaubte Benutzer - Root für Management, erik für Administration
+      AllowUsers root erik
+
+      # Public-Key-Authentifizierung - Bevorzugte Methode
+      PubkeyAuthentication yes
+      AuthorizedKeysFile .ssh/authorized_keys .ssh/authorized_keys2
+
+      # Passwort-Authentifizierung - Für Container-Setup und Notfälle
+      PasswordAuthentication no
+      PermitEmptyPasswords no
+
+      # Weitere Auth-Methoden deaktiviert
+      ChallengeResponseAuthentication no
+      KbdInteractiveAuthentication no
+
+      # PAM für Passwort-Validierung nutzen
+      UsePAM yes
+
+      # =============================================================================
+      # SITZUNGS-KONFIGURATION
+      # =============================================================================
+
+      # Maximale Authentifizierungs-Versuche pro Verbindung
+      MaxAuthTries 3
+
+      # Maximale gleichzeitige SSH-Sitzungen pro Verbindung
+      MaxSessions 5
+
+      # Verbindungsaufbau-Begrenzung (Brute-Force-Schutz)
+      # 3 = Ab 3 Verbindungen beginnt Begrenzung
+      # 30 = Bei 30% der Max-Verbindungen zufällige Verweigerung
+      # 10 = Maximum 10 gleichzeitige unauthentifizierte Verbindungen
+      MaxStartups 3:30:10
+
+      # Client-Alive-Konfiguration (Session-Timeouts)
+      ClientAliveInterval 300    # Alle 5 Minuten Lebenszeichen senden
+      ClientAliveCountMax 2      # Nach 2 verpassten Antworten trennen (10 Min total)
+
+      # Maximale Zeit für Login (Sekunden)
+      LoginGraceTime 30
+
+      # =============================================================================
+      # SICHERHEITS-FEATURES UND EINSCHRÄNKUNGEN
+      # =============================================================================
+
+      # X11-Weiterleitung deaktiviert (Sicherheitsrisiko)
+      X11Forwarding no
+
+      # TCP-Weiterleitung nur lokal erlaubt
+      AllowTcpForwarding local
+
+      # Stream-Weiterleitung deaktiviert
+      AllowStreamLocalForwarding no
+
+      # Gateway-Ports deaktiviert
+      GatewayPorts no
+
+      # SSH-Agent-Weiterleitung deaktiviert
+      AllowAgentForwarding no
+
+      # Tunnel deaktiviert
+      PermitTunnel no
+
+      # Benutzer-Umgebung nicht erlaubt
+      PermitUserEnvironment no
+
+      # =============================================================================
+      # PROTOKOLLIERUNG UND ÜBERWACHUNG
+      # =============================================================================
+
+      # Syslog-Facility für SSH-Logs
+      SyslogFacility AUTHPRIV
+
+      # Detaillierte Protokollierung für Sicherheits-Audits
+      LogLevel VERBOSE
+
+      # SSH-Banner anzeigen
+      Banner /etc/ssh/ssh_banner.txt
+
+      # =============================================================================
+      # ZUSÄTZLICHE SICHERHEITS-EINSTELLUNGEN
+      # =============================================================================
+
+      # Strikte Datei-Berechtigungen prüfen
+      StrictModes yes
+
+      # Komprimierung deaktiviert (Sicherheit vor Performance)
+      Compression no
+
+      # TCP-KeepAlive aktiviert
+      TCPKeepAlive yes
+
+      # DNS-Lookups deaktiviert (Performance und Sicherheit)
+      UseDNS no
+
+      # Message of the Day nicht anzeigen
+      PrintMotd no
+
+      # Letzten Login anzeigen
+      PrintLastLog yes
+
+      # GSSAPI deaktiviert
+      GSSAPIAuthentication no
+
+      # Host-basierte Authentifizierung deaktiviert
+      HostbasedAuthentication no
+
+      # User-Known-Hosts ignorieren
+      IgnoreUserKnownHosts yes
+
+      # Minimale RSA-Schlüssel-Größe
+      RequiredRSASize 2048
+
+      # Debian-Banner deaktiviert
+      DebianBanner no
+
+      # =============================================================================
+      # SFTP-SUBSYSTEM
+      # =============================================================================
+
+      # Sicheres SFTP mit detaillierter Protokollierung
+      Subsystem sftp /usr/lib/openssh/sftp-server -f AUTHPRIV -l INFO
+    mode: '0644'
+  tags: [ssh_config_create]
+
+- name: "SSH-Konfiguration in Container installieren"
+  shell: |
+    echo "Installiere SSH-Konfiguration..."
+
+    # Kopiere SSH-Config in Container
+    pct push {{ container_id }} /tmp/sshd_config_{{ container_id }} /etc/ssh/sshd_config
+
+    # Setze Berechtigungen
+    pct exec {{ container_id }} -- chmod 644 /etc/ssh/sshd_config
+    pct exec {{ container_id }} -- chown root:root /etc/ssh/sshd_config
+
+    # Aufräumen
+    rm -f /tmp/sshd_config_{{ container_id }}
+
+    echo "SSH-Konfiguration installiert"
+  tags: [ssh_install]
+
+- name: "SSH-Service starten und validieren"
+  shell: |
+    echo "Validiere und starte SSH-Service..."
+
+    # SSH-Verzeichnisse erstellen
+    pct exec {{ container_id }} -- mkdir -p /run/sshd
+    pct exec {{ container_id }} -- chmod 755 /run/sshd
+
+    # Syntax-Test
+    if pct exec {{ container_id }} -- sshd -t; then
+      echo "SSH-Konfiguration gültig"
+
+      # Service starten
+      if pct exec {{ container_id }} -- systemctl start ssh; then
+        echo "SSH-Service gestartet"
+        pct exec {{ container_id }} -- systemctl enable ssh
+
+        # Status prüfen
+        pct exec {{ container_id }} -- systemctl is-active ssh
+
+        # Port-Check
+        echo "SSH lauscht auf Port:"
+        pct exec {{ container_id }} -- ss -tulpn | grep ":62222" || echo "WARNUNG: Port 62222 nicht gefunden"
+
+      else
+        echo "FEHLER: SSH-Service-Start fehlgeschlagen"
+        pct exec {{ container_id }} -- systemctl status ssh --no-pager || true
+        exit 1
+      fi
+
+    else
+      echo "FEHLER: SSH-Konfiguration ungültig - Details:"
+      pct exec {{ container_id }} -- sshd -t || true
+      exit 1
+    fi
+  register: ssh_service_result
+  tags: [ssh_validation, ssh_start]
+
+- name: "Windows Terminal SSH-Config Befehl generieren"
+  debug:
+    msg: |
+      ==========================================================================
+      AUTOMATISCHER SSH-CONFIG EINTRAG - COPY & PASTE
+      ==========================================================================
+
+      @"
+
+# {{ container_id }} - {{ container_hostname }} - erstellt am {{ ansible_date_time.date }}
+Host {{ container_hostname }}
+    HostName {{ container_ip_result.stdout | default('CONTAINER-IP') }}
+    User root
+    Port 62222
+    IdentityFile C:\Users\erikw\.ssh\proxmox_ed25519
+    IdentitiesOnly yes
+    Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com
+    MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com
+    KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org
+    HostKeyAlgorithms ssh-ed25519,ssh-rsa
+
+"@ | Add-Content -Path "`$env:USERPROFILE\.ssh\config"
+
+      Dann einfach verbinden mit: ssh {{ container_hostname }}
+
+  when: container_ip_result.stdout is defined and container_ip_result.stdout != ""
+  tags: [windows_ssh_config]

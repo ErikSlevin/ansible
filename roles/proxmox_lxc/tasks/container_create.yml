@@ -2,8 +2,23 @@
 # Container-Erstellung mit dynamischen Parametern
 # Erstellt LXC Container mit allen konfigurierten Einstellungen
 
+- name: "Eriks SSH-Key vom PVE Host lesen"
+  shell: |
+    # Eriks authorized_keys lesen
+    if [ -f "/home/erik/.ssh/authorized_keys" ]; then
+      cat /home/erik/.ssh/authorized_keys
+    else
+      echo "WARNUNG: Eriks SSH-Key nicht gefunden"
+      exit 1
+    fi
+  register: erik_ssh_key_result
+  changed_when: false
+  tags: [ssh_key_preparation]
+
 - name: "Bereite Container-Parameter vor"
   set_fact:
+    # Eriks SSH-Key für Container-Erstellung
+    erik_ssh_key: "{{ erik_ssh_key_result.stdout | trim }}"
     # Dynamische Netzwerk-Konfiguration basierend auf IP-Typ
     network_config: >-
       {% if container_ip == 'dhcp' -%}
@@ -15,8 +30,12 @@
     extended_tags: "vlan{{ container_vlan }}"
   tags: [parameter_preparation]
 
-- name: "Erstelle LXC Container {{ container_id }} ({{ container_hostname }})"
+- name: "Erstelle LXC Container {{ container_id }} mit SSH-Key ({{ container_hostname }})"
   shell: |
+    # Erstelle temporäre SSH-Key-Datei
+    echo "{{ erik_ssh_key }}" > /tmp/erik_key_{{ container_id }}.pub
+
+    # Container mit eriks SSH-Key erstellen
     pct create {{ container_id }} {{ container_template }} \
       --hostname {{ container_hostname }} \
       --storage {{ container_storage }} \
@@ -24,14 +43,21 @@
       --memory {{ container_memory }} \
       --rootfs {{ container_storage }}:{{ container_rootfs_size }} \
       --net0 {{ network_config }} \
+      --ssh-public-keys /tmp/erik_key_{{ container_id }}.pub \
       --unprivileged 1 \
       --onboot 0 \
       --protection 0 \
       --startup order=10,up=30 \
       --tags "{{ extended_tags }}" \
       --features nesting=1,keyctl=1
+
+    # Aufräumen
+    rm -f /tmp/erik_key_{{ container_id }}.pub
+
+    echo "Container erfolgreich mit erik's SSH-Key erstellt"
   register: container_create_result
-  tags: [container_creation]
+  when: erik_ssh_key is defined and erik_ssh_key != ""
+  tags: [container_creation_with_ssh]
 
 - name: "Validiere Container-Erstellung"
   shell: "pct list | grep '^{{ container_id }} '"
