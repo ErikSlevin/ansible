@@ -50,13 +50,3 @@
   register: container_info
   changed_when: false
   tags: [status_info]
-
-- name: "Container erfolgreich gestartet"
-  debug:
-    msg: |
-      ✅ Container {{ container_id }} läuft erfolgreich!
-      Hostname: {{ container_hostname }}
-      IP-Adresse: {{ container_ip_result.stdout | default('Nicht verfügbar') }}
-      MAC-Adresse: {{ container_mac_result.stdout | default('Nicht ermittelt') }}
-      Status: {{ container_info.stdout }}
-  tags: [start_summary]

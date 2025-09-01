@@ -15,22 +15,6 @@
     extended_tags: "vlan{{ container_vlan }}"
   tags: [parameter_preparation]
 
-- name: "Debug: Zeige Container-Parameter"
-  debug:
-    msg: |
-      Container-Konfiguration:
-      - ID: {{ container_id }}
-      - Hostname: {{ container_hostname }}
-      - Template: {{ container_template }}
-      - Cores: {{ container_cores }}
-      - Memory: {{ container_memory }}MB
-      - Rootfs: {{ container_rootfs_size }}GB
-      - Storage: {{ container_storage }}
-      - Network: {{ network_config }}
-      - Tags: {{ extended_tags }}
-  when: enable_debug | default(false)
-  tags: [debug_info]
-
 - name: "Erstelle LXC Container {{ container_id }} ({{ container_hostname }})"
   shell: |
     pct create {{ container_id }} {{ container_template }} \
@@ -55,11 +39,3 @@
   failed_when: creation_validation.rc != 0
   changed_when: false
   tags: [creation_validation]
-
-- name: "Container-Erstellung erfolgreich"
-  debug:
-    msg: |
-      ✅ Container {{ container_id }} erfolgreich erstellt!
-      Hostname: {{ container_hostname }}
-      Status: Erstellt (gestoppt)
-  tags: [success_message]

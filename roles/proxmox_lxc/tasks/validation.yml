@@ -21,7 +21,3 @@
   when: container_status_check.rc == 0
   tags: [conflict_check]
 
-- name: "Validierung erfolgreich"
-  debug:
-    msg: "✅ Container-ID {{ container_id }} ist verfügbar"
-  tags: [validation_success]

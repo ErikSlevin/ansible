@@ -47,14 +47,3 @@
   changed_when: setup_result.rc == 0
   failed_when: setup_result.rc != 0
   tags: [system_update, locale_setup, timezone_setup, hostname_setup]
-
-- name: "System-Setup erfolgreich abgeschlossen"
-  debug:
-    msg: |
-      ✅ Container {{ container_hostname }} ist betriebsbereit!
-      - System aktualisiert
-      - Deutsche Locale ({{ container_locale }}) konfiguriert
-      - Zeitzone: {{ container_timezone }}
-      - SSH vorbereitet
-      - Hostname konfiguriert
-  tags: [setup_summary]

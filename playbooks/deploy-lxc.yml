@@ -5,48 +5,6 @@
   gather_facts: yes
   vars_files:
     - ../group_vars/all/vault.yml
-
-  pre_tasks:
-    - name: "📋 Zeige Deployment-Parameter"
-      debug:
-        msg: |
-          ========================================
-          🚀 LXC CONTAINER DEPLOYMENT
-          ========================================
-          Ziel-Host: {{ inventory_hostname }}
-          Container-ID: {{ ct_id | default('auto') }}
-          Hostname: {{ ct_hostname | default('auto') }}
-          Template: {{ ct_template | default('Debian 12') }}
-          VLAN: {{ ct_vlan | default('20') }}
-          ========================================
-      tags: [info]
-
-    - name: "🔐 Prüfe Vault-Zugriff"
-      debug:
-        msg: "✅ Vault erfolgreich entschlüsselt"
-      when: vault_default_root_password is defined
-      tags: [vault_check]
-
   roles:
     - role: proxmox_lxc
       tags: [deployment, lxc]
-
-  post_tasks:
-    - name: "✅ Deployment erfolgreich abgeschlossen"
-      debug:
-        msg: |
-          ========================================
-          ✅ DEPLOYMENT ABGESCHLOSSEN
-          ========================================
-          Container erfolgreich erstellt und konfiguriert!
-
-          Nächste Schritte:
-          1. UniFi-Registrierung durchführen (siehe oben)
-          2. Container mit SSH testen
-          3. Weitere Services installieren
-
-          SSH-Zugang:
-          ssh root@{{ container_ip_result.stdout | default('CONTAINER_IP') }}
-
-          ========================================
-      tags: [summary]

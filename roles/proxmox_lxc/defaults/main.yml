@@ -50,3 +50,6 @@ unify_site_id: "5f4a34e0a7986c0ea415ca25"
 # Sicherheits-Einstellungen
 security_ssh_banner_enabled: true
 security_ssh_hardening_enabled: true
+
+# Schrittzaehler
+step_counter: 0

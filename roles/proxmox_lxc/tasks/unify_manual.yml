@@ -2,42 +2,6 @@
 # UniFi Controller Integration
 # Zeigt fertige Befehle für die manuelle Registrierung im UniFi Controller
 
-- name: "Generiere UniFi-Registrierungs-Befehle für {{ container_hostname }}"
-  debug:
-    msg: |-
-      ========================================================================
-      UNIFI CONTROLLER REGISTRIERUNG
-      ========================================================================
-      Container: {{ container_hostname }}
-      Container-ID: {{ container_id }}
-      MAC-Adresse: {{ container_mac_result.stdout | upper }}
-      IP-Adresse: {{ container_ip_result.stdout | default('DHCP') }}
-      VLAN: {{ container_vlan }}
-      ========================================================================
-
-  when:
-    - container_mac_result is defined
-    - container_mac_result.stdout != ""
-  tags: [unifi_commands, manual_registration]
-
-- name: "Generiere UniFi-Registrierungs-Befehle für {{ container_hostname }}"
-  debug:
-    msg: |-
-      ========================================================================
-      UNIFI CONTROLLER REGISTRIERUNG
-      ========================================================================
-      Container: {{ container_hostname }}
-      Container-ID: {{ container_id }}
-      MAC-Adresse: {{ container_mac_result.stdout | upper }}
-      IP-Adresse: {{ container_ip_result.stdout | default('DHCP') }}
-      VLAN: {{ container_vlan }}
-      ========================================================================
-
-  when:
-    - container_mac_result is defined
-    - container_mac_result.stdout != ""
-  tags: [unifi_commands, manual_registration]
-
 - name: "COPY-PASTE BEFEHL FÜR REGISTRIERUNG"
   debug:
     msg: |-
@@ -47,23 +11,10 @@
 
       ssh unifi 'mongo --port 27117 ace --eval "db.user.update({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}, {\"\$set\": {\"name\": \"LXC-{{ container_hostname }}\", \"display_name\": \"{{ container_hostname }}\", \"hostname\": \"{{ container_hostname }}\", \"note\": \"Proxmox LXC Container ID {{ container_id }} - Auto-created {{ ansible_date_time.date }}\", \"mac\": \"{{ container_mac_result.stdout | lower }}\", \"is_wired\": true, \"is_guest\": false, \"blocked\": false, \"noted\": true, \"usergroup_id\": \"\", \"use_fixedip\": false, \"fingerprint_override\": true, \"dev_id_override\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"device_id\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"first_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"last_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"oui\": \"Proxmox Server Solutions GmbH\", \"site_id\": ObjectId(\"{{ unify_site_id }}\")}}, {upsert: true}); print(\"Container {{ container_hostname }} erfolgreich registriert\"); db.user.find({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}).pretty();"'
 
+      ssh unifi 'service unifi restart'
+
       ========================================================================
   when:
     - container_mac_result is defined
     - container_mac_result.stdout != ""
   tags: [unifi_commands]
-
-- name: "UniFi Service neustarten"
-  debug:
-    msg: |-
-      UNIFI SERVICE NEUSTARTEN:
-      ========================================================================
-
-      ssh unifi 'service unifi restart'
-
-      ========================================================================
-
-  when:
-    - container_mac_result is defined
-    - container_mac_result.stdout != ""
-  tags: [unifi_commands, manual_registration]

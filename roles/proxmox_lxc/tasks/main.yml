@@ -1,24 +1,23 @@
----
 # Hauptsteuerung der proxmox_lxc Rolle
 # Erstellt und konfiguriert LXC Container auf Proxmox VE
 
 - name: "Vorbereitung und Validierung"
   block:
-    - name: "Schritt 1: Container-ID-Management"
+    - name: "Container-ID-Management"
       include_tasks: id_management.yml
       tags: [preparation, id_management]
 
-    - name: "Schritt 2: Validierung der Container-ID"
+    - name: "Validierung der Container-ID"
       include_tasks: validation.yml
       tags: [preparation, validation]
 
 - name: "Container-Erstellung"
   block:
-    - name: "Schritt 3: LXC Container erstellen"
+    - name: "Schritt {{ step_counter }}: LXC Container erstellen"
       include_tasks: container_create.yml
       tags: [deployment, container_create]
 
-    - name: "Schritt 4: Container starten und überwachen"
+    - name: "Container starten und ueberwachen"
       include_tasks: container_start.yml
       tags: [deployment, container_start]
   rescue:
@@ -30,32 +29,19 @@
 
 - name: "Post-Deployment Konfiguration"
   block:
-    - name: "Schritt 5: Basis-System konfigurieren"
+    - name: "Basis-System konfigurieren"
       include_tasks: container_setup.yml
       when: container_setup_enabled | default(true)
       tags: [configuration, system_setup]
 
-    - name: "Schritt 6: SSH-Banner einrichten"
+    - name: "SSH-Banner einrichten"
       include_tasks: ssh_banner_setup.yml
       when: container_setup_enabled | default(true)
       tags: [configuration, ssh_setup, security]
 
 - name: "UniFi-Integration"
   block:
-    - name: "Schritt 7: UniFi-Registrierung vorbereiten"
+    - name: "UniFi-Registrierung vorbereiten"
       include_tasks: unify_manual.yml
       when: show_unify_commands | default(true)
       tags: [unifi, manual_commands]
-
-- name: "Deployment-Zusammenfassung anzeigen"
-  debug:
-    msg: |
-      =====================================
-      CONTAINER ERFOLGREICH ERSTELLT
-      =====================================
-      Container-ID: {{ container_id }}
-      Hostname: {{ container_hostname }}
-      VLAN: {{ container_vlan }}
-      Status: Läuft und konfiguriert
-      =====================================
-  tags: [summary]

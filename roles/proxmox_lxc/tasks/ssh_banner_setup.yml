@@ -54,13 +54,3 @@
   changed_when: ssh_banner_result.rc == 0
   failed_when: ssh_banner_result.rc != 0
   tags: [ssh_banner, ssh_hardening, security]
-
-- name: "SSH-Banner und Sicherheit konfiguriert"
-  debug:
-    msg: |
-      ✅ SSH-Sicherheit für {{ container_hostname }} konfiguriert!
-      - Personalisierter Banner aktiviert
-      - SSH-Verbindungszeiten begrenzt
-      - Authentifizierungs-Versuche limitiert
-      - SSH-Service neu gestartet
-  tags: [ssh_summary]
