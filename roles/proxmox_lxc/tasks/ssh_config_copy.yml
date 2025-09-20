@@ -260,30 +260,45 @@
   register: ssh_service_result
   tags: [ssh_validation, ssh_start]
 
-- name: "Windows Terminal SSH-Config Befehl generieren"
+- name: "SSH-Konfiguration und Verbindungsanleitungen anzeigen"
   debug:
     msg: |
       ==========================================================================
-      AUTOMATISCHER SSH-CONFIG EINTRAG - COPY & PASTE
+      CONTAINER ERFOLGREICH ERSTELLT - SSH-VERBINDUNG EINRICHTEN
       ==========================================================================
 
-      @"
+      Container: {{ container_hostname }} (ID: {{ container_id }})
+      IP-Adresse: {{ container_ip_result.stdout | default('DHCP - siehe Container-Status') }}
+      MAC-Adresse: {{ container_mac_result.stdout | default('nicht ermittelt') }}
+      VLAN: {{ container_vlan }}
 
-# {{ container_id }} - {{ container_hostname }} - erstellt am {{ ansible_date_time.date }}
-Host {{ container_hostname }}
-    HostName {{ container_ip_result.stdout | default('CONTAINER-IP') }}
-    User root
-    Port 62222
-    IdentityFile C:\Users\erikw\.ssh\proxmox_ed25519
-    IdentitiesOnly yes
-    Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com
-    MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com
-    KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org
-    HostKeyAlgorithms ssh-ed25519,ssh-rsa
+      ==========================================================================
+      SOFORT VERBINDEN (ohne Config):
+      ==========================================================================
 
-"@ | Add-Content -Path "`$env:USERPROFILE\.ssh\config"
+      ssh -p 62222 -i ~/.ssh/proxmox_ed25519 root@{{ container_ip_result.stdout | default('CONTAINER-IP') }}
 
-      Dann einfach verbinden mit: ssh {{ container_hostname }}
+      ==========================================================================
+      WINDOWS POWERSHELL - SSH-CONFIG ONELINER (Copy & Paste):
+      ==========================================================================
+
+      Add-Content -Path "$env:USERPROFILE\.ssh\config" -Value "`n# {{ container_id }} - {{ container_hostname }} - {{ ansible_date_time.date }}`nHost {{ container_hostname }}`n    HostName {{ container_ip_result.stdout | default('CONTAINER-IP') }}`n    User root`n    Port 62222`n    IdentityFile C:\Users\erikw\.ssh\proxmox_ed25519`n    IdentitiesOnly yes`n    Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com`n    MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com`n    KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org`n    HostKeyAlgorithms ssh-ed25519,ssh-rsa`n"
+
+      ==========================================================================
+      NACH CONFIG-SETUP EINFACH VERBINDEN MIT:
+      ==========================================================================
+
+      ssh {{ container_hostname }}
+
+      ==========================================================================
+      CONFIG PRÜFEN:
+      ==========================================================================
+
+      # Windows:
+      Get-Content "$env:USERPROFILE\.ssh\config" | Select-Object -Last 10
+
+      # Linux/Mac:
+      tail -10 ~/.ssh/config
 
   when: container_ip_result.stdout is defined and container_ip_result.stdout != ""
-  tags: [windows_ssh_config]
+  tags: [ssh_info, connection_info]
