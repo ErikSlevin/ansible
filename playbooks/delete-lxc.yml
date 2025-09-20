@@ -3,30 +3,82 @@
   hosts: proxmox
   become: yes
   gather_facts: no
-  vars_prompt:
-    - name: container_ids_input
-      prompt: "Container-IDs (einzeln: 100, komma-separiert: 100,101,102, ranges: 100-105)"
-      private: no
-    - name: force_delete
-      prompt: "Force delete (auch laufende Container)? [y/N]"
-      private: no
-      default: "n"
-    - name: confirm_delete
-      prompt: "ACHTUNG: Diese Container werden PERMANENT geloescht! Fortfahren? [y/N]"
-      private: no
-      default: "n"
-
+  
   tasks:
+    - name: "Sammle LXC Container Informationen"
+      shell: |
+        /usr/sbin/pct list | awk 'NR>1 {printf "%-3s | %s\n", $1, $3}' 2>/dev/null || echo "Keine LXC Container gefunden"
+      register: lxc_containers
+      tags: [overview]
+
+    - name: "Sammle VM Informationen"
+      shell: |
+        /usr/sbin/qm list | awk 'NR>1 {printf "%-3s | %s\n", $1, $2}' 2>/dev/null || echo "Keine VMs gefunden"
+      register: vm_list
+      tags: [overview]
+
+    - name: "Zeige übersichtliche Container-Liste"
+      debug:
+        msg: |
+          ==========================================================================
+          AKTUELLE CONTAINER UND VMs
+          ==========================================================================
+          
+          LXC CONTAINER:
+          {{ lxc_containers.stdout if lxc_containers.stdout != "" else "Keine LXC Container vorhanden" }}
+          
+          VMs:
+          {{ vm_list.stdout if vm_list.stdout != "" else "Keine VMs vorhanden" }}
+          
+          ==========================================================================
+      tags: [overview]
+
+    - name: "Container-IDs eingeben"
+      pause:
+        prompt: |
+          
+          Welche Container sollen gelöscht werden?
+          
+          Eingabeformate:
+          • Einzeln: 100
+          • Komma-separiert: 100,101,102  
+          • Ranges: 100-105
+          • Gemischt: 100,102-105,110
+          
+          Container-IDs
+      register: container_ids_input
+      tags: [input]
+
+    - name: "Force Delete Option"
+      pause:
+        prompt: "Force delete (auch laufende Container)? [y/N]"
+      register: force_delete_input
+      tags: [input]
+
+    - name: "Finale Bestätigung"
+      pause:
+        prompt: "ACHTUNG: Diese Container werden PERMANENT gelöscht! Fortfahren? [y/N]"
+      register: confirm_delete_input
+      tags: [input]
+
+    - name: "Eingaben verarbeiten"
+      set_fact:
+        container_ids_raw: "{{ container_ids_input.user_input | default('') }}"
+        force_delete: "{{ force_delete_input.user_input | default('n') }}"
+        confirm_delete: "{{ confirm_delete_input.user_input | default('n') }}"
+      tags: [processing]
+
     - name: "Bestätigung prüfen"
       fail:
         msg: "Löschvorgang abgebrochen"
       when: confirm_delete.lower() != 'y'
+      tags: [validation]
 
     - name: "Parse Container-IDs"
       set_fact:
         container_ids: |
           {%- set ids = [] -%}
-          {%- for part in container_ids_input.replace(' ', '').split(',') -%}
+          {%- for part in container_ids_raw.replace(' ', '').split(',') -%}
             {%- if '-' in part -%}
               {%- set range_parts = part.split('-') -%}
               {%- if range_parts | length == 2 -%}
@@ -39,10 +91,17 @@
             {%- endif -%}
           {%- endfor -%}
           {{ ids | unique | sort }}
+      tags: [processing]
 
-    - name: "Zeige Container-IDs"
+    - name: "Zeige zu löschende Container"
       debug:
-        msg: "Zu löschende Container: {{ container_ids | join(', ') }}"
+        msg: |
+          ========================================================================== 
+          ZU LÖSCHENDE CONTAINER: {{ container_ids | join(', ') }}
+          Anzahl: {{ container_ids | length }}
+          Force-Modus: {{ 'Ja' if force_delete.lower() == 'y' else 'Nein' }}
+          ==========================================================================
+      tags: [confirmation]
 
     - name: "Prüfe Container-Existenz"
       shell: "/usr/sbin/pct list | grep -E '^\\s*{{ item }}\\s'"
@@ -50,6 +109,15 @@
       loop: "{{ container_ids }}"
       failed_when: false
       changed_when: false
+      tags: [validation]
+
+    - name: "Prüfe VM-Existenz (für Konflikt-Check)"
+      shell: "/usr/sbin/qm list | grep -E '^\\s*{{ item }}\\s'"
+      register: vm_exists
+      loop: "{{ container_ids }}"
+      failed_when: false
+      changed_when: false
+      tags: [validation]
 
     - name: "Filtere existierende Container"
       set_fact:
@@ -61,11 +129,37 @@
             {%- endif -%}
           {%- endfor -%}
           {{ existing }}
+        conflicting_vms: |
+          {%- set vms = [] -%}
+          {%- for result in vm_exists.results -%}
+            {%- if result.rc == 0 -%}
+              {%- set _ = vms.append(result.item) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ vms }}
+      tags: [processing]
 
     - name: "Zeige nicht gefundene Container"
       debug:
-        msg: "Nicht gefunden: {{ container_ids | difference(existing_containers) | join(', ') }}"
-      when: (container_ids | difference(existing_containers)) | length > 0
+        msg: |
+          NICHT GEFUNDEN: {{ container_ids | difference(existing_containers) | join(', ') }}
+          {% if conflicting_vms | length > 0 %}
+          WARNUNG: Folgende IDs sind VMs (nicht Container): {{ conflicting_vms | join(', ') }}
+          {% endif %}
+      when: 
+        - (container_ids | difference(existing_containers)) | length > 0 or conflicting_vms | length > 0
+      tags: [info]
+
+    - name: "Zeige finale Lösch-Liste"
+      debug:
+        msg: |
+          ==========================================================================
+          FINALE CONTAINER-LÖSCHUNG
+          ==========================================================================
+          Zu löschende Container: {{ existing_containers | join(', ') if existing_containers | length > 0 else 'Keine' }}
+          Anzahl: {{ existing_containers | length }}
+          ==========================================================================
+      tags: [final_info]
 
     - name: "Stoppe Container falls nötig"
       shell: |
@@ -79,19 +173,32 @@
       when: 
         - existing_containers | length > 0
         - force_delete.lower() == 'y'
+      tags: [stopping]
 
     - name: "Lösche Container"
-      shell: "/usr/sbin/pct destroy {{ item }} --purge{% if force_delete.lower() == 'y' %} --force{% endif %}"
+      shell: |
+        echo "Lösche Container {{ item }}..."
+        /usr/sbin/pct destroy {{ item }} --purge{% if force_delete.lower() == 'y' %} --force{% endif %}
+        echo "✅ Container {{ item }} erfolgreich gelöscht"
       register: delete_results
       loop: "{{ existing_containers }}"
       when: existing_containers | length > 0
+      tags: [deletion]
 
-    - name: "Zeige Ergebnisse"
+    - name: "Zeige Abschluss-Bericht"
       debug:
         msg: |
+          ==========================================================================
           LÖSCHVORGANG ABGESCHLOSSEN
-          ==========================
-          Eingabe: {{ container_ids_input }}
+          ==========================================================================
+          Eingabe: {{ container_ids_raw }}
+          Verarbeitet: {{ container_ids | join(', ') }}
           Gelöscht: {{ existing_containers | join(', ') if existing_containers | length > 0 else 'Keine' }}
-          Anzahl: {{ existing_containers | length }}
+          Anzahl gelöscht: {{ existing_containers | length }}
+          
+          {% if (container_ids | difference(existing_containers)) | length > 0 %}
+          Nicht gefunden: {{ container_ids | difference(existing_containers) | join(', ') }}
+          {% endif %}
+          ==========================================================================
       when: container_ids | length > 0
+      tags: [summary]
