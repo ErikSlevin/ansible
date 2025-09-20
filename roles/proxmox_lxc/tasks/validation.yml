@@ -1,23 +1,33 @@
 ---
-# Container-ID Validierung
-# Überprüft ob Container-ID bereits existiert
+# Umfassende Container-ID Validierung
 
-- name: "Validiere Container-ID {{ container_id }}"
+- name: "Prüfe LXC Container-ID {{ container_id }}"
   shell: "pct status {{ container_id }} 2>/dev/null"
-  register: container_status_check
+  register: lxc_status_check
   failed_when: false
   changed_when: false
-  tags: [status_check]
+  tags: [lxc_check]
+
+- name: "Prüfe VM-ID {{ container_id }}"
+  shell: "qm status {{ container_id }} 2>/dev/null"
+  register: vm_status_check
+  failed_when: false
+  changed_when: false
+  tags: [vm_check]
 
 - name: "Container-ID Konflikt prüfen"
   fail:
     msg: |
-      ❌ FEHLER: Container mit ID {{ container_id }} existiert bereits!
-      Status: {{ container_status_check.stdout }}
-
-      Lösung:
-      - Verwende eine andere ID mit: -e ct_id=XXX
-      - Oder lösche existierenden Container: pct destroy {{ container_id }}
-  when: container_status_check.rc == 0
+      FEHLER: ID {{ container_id }} ist bereits belegt!
+ 
+      {% if lxc_status_check.rc == 0 %}
+      Problem: LXC Container {{ container_id }} existiert bereits
+      Status: {{ lxc_status_check.stdout }}
+      Lösung: pct destroy {{ container_id }} --purge
+      {% elif vm_status_check.rc == 0 %}
+      Problem: VM {{ container_id }} existiert bereits
+      Status: {{ vm_status_check.stdout }}
+      Lösung: Andere ID verwenden: -e ct_id=XXX
+      {% endif %}
+  when: lxc_status_check.rc == 0 or vm_status_check.rc == 0
   tags: [conflict_check]
-

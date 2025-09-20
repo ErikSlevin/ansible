@@ -1,0 +1,64 @@
+---
+- name: "UniFi Controller Manual Registration (Simple)"
+  hosts: proxmox
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/unify.yml
+  vars:
+    container_hostname: "{{ target_hostname | default('test-container') }}"
+    container_id: "{{ target_id | default('999') }}"
+    container_mac_result:
+      stdout: "{{ target_mac | default('') }}"
+    container_type: "{{ target_type | default('none') | lower }}"
+
+  tasks:
+    - name: "Validiere erforderliche Parameter"
+      fail:
+        msg: |
+          Erforderliche Parameter fehlen!
+          Verwendung: ansible-playbook playbooks/unifi-register-simple.yml \
+            -e "target_hostname=mein-container" \
+            -e "target_mac=aa:bb:cc:dd:ee:ff" \
+            -e "target_type=vm"
+      when:
+        - target_mac is not defined or target_mac == ""
+        - target_hostname is not defined
+
+    - name: "LXC Container Registrierung"
+      debug:
+        msg: |-
+          ========================================================================
+          COPY-PASTE BEFEHL FÜR LXC CONTAINER:
+          ========================================================================
+          ssh unifi 'mongo --port 27117 ace --eval "db.user.update({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}, {\"\$set\": {\"name\": \"LXC-{{ container_hostname }}\", \"display_name\": \"LXC-{{ container_hostname }}\", \"hostname\": \"{{ container_hostname }}\", \"note\": \"Auto-created {{ ansible_date_time.date }}\", \"mac\": \"{{ container_mac_result.stdout | lower }}\", \"is_wired\": true, \"is_guest\": false, \"blocked\": false, \"noted\": true, \"usergroup_id\": \"\", \"use_fixedip\": false, \"fingerprint_override\": true, \"dev_id_override\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"device_id\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"first_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"last_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"oui\": \"Proxmox Server Solutions GmbH\", \"site_id\": ObjectId(\"{{ unify_site_id }}\")}}, {upsert: true}); print(\"LXC Container {{ container_hostname }} erfolgreich registriert\"); db.user.find({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}).pretty();"'
+          ssh unifi 'service unifi restart'
+          ========================================================================
+      when:
+        - container_mac_result.stdout != ""
+        - container_type == "lxc"
+
+    - name: "VM Registrierung"
+      debug:
+        msg: |-
+          ========================================================================
+          COPY-PASTE BEFEHL FÜR VM:
+          ========================================================================
+          ssh unifi 'mongo --port 27117 ace --eval "db.user.update({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}, {\"\$set\": {\"name\": \"VM-{{ container_hostname }}\", \"display_name\": \"VM-{{ container_hostname }}\", \"hostname\": \"{{ container_hostname }}\", \"note\": \"Auto-created {{ ansible_date_time.date }}\", \"mac\": \"{{ container_mac_result.stdout | lower }}\", \"is_wired\": true, \"is_guest\": false, \"blocked\": false, \"noted\": true, \"usergroup_id\": \"\", \"use_fixedip\": false, \"fingerprint_override\": true, \"dev_id_override\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"device_id\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"first_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"last_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"oui\": \"Proxmox Server Solutions GmbH\", \"site_id\": ObjectId(\"{{ unify_site_id }}\")}}, {upsert: true}); print(\"VM {{ container_hostname }} erfolgreich registriert\"); db.user.find({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}).pretty();"'
+          ssh unifi 'service unifi restart'
+          ========================================================================
+      when:
+        - container_mac_result.stdout != ""
+        - container_type == "vm"
+
+    - name: "Ohne Präfix Registrierung"
+      debug:
+        msg: |-
+          ========================================================================
+          COPY-PASTE BEFEHL (OHNE PRÄFIX):
+          ========================================================================
+          ssh unifi 'mongo --port 27117 ace --eval "db.user.update({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}, {\"\$set\": {\"name\": \"{{ container_hostname }}\", \"display_name\": \"{{ container_hostname }}\", \"hostname\": \"{{ container_hostname }}\", \"note\": \"Device ID {{ container_id }} - Auto-created {{ ansible_date_time.date }}\", \"mac\": \"{{ container_mac_result.stdout | lower }}\", \"is_wired\": true, \"is_guest\": false, \"blocked\": false, \"noted\": true, \"usergroup_id\": \"\", \"use_fixedip\": false, \"fingerprint_override\": true, \"dev_id_override\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"device_id\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"first_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"last_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"oui\": \"Proxmox Server Solutions GmbH\", \"site_id\": ObjectId(\"{{ unify_site_id }}\")}}, {upsert: true}); print(\"Device {{ container_hostname }} erfolgreich registriert\"); db.user.find({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}).pretty();"'
+          ssh unifi 'service unifi restart'
+          ========================================================================
+      when:
+        - container_mac_result.stdout != ""
+        - container_type == "none"
