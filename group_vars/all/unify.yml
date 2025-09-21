@@ -3,11 +3,24 @@
 # Gilt fuer alle Hosts, die mit UniFi registriert werden
 
 # UniFi Controller Details
-unify_controller_host: "10.0.0.254"
+unify_controller_host: "{{ hostvars['unify']['ansible_host'] }}"
 unify_controller_port: 27117
 
+# UniFi API V2 Konfiguration
+unify_api_key: "{{ vault_unify_api_key }}"
+unify_api_base_url: "https://{{ unify_controller_host }}"
+
+# API-Endpoints
+unify_endpoints:
+  clients: "/proxy/network/integration/v1/sites/{{ unify_site_id }}/clients"
+  client_update: "/proxy/network/integration/v1/sites/{{ unify_site_id }}/clients"
+
+# Timeout-Einstellungen für API-Calls
+unify_api_timeout: 30
+unify_api_retries: 3
+
 # Site und Netzwerk-Konfiguration
-unify_site_id: "5f4a34e0a7986c0ea415ca25"
+unify_site_id: "88f7af54-98f8-306a-a1c7-c9349722b1f6"
 
 # Netzwerk-Zuordnungen basierend auf VLAN
 unify_networks:

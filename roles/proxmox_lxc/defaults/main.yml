@@ -43,9 +43,13 @@ container_setup_enabled: true
 container_timezone: "Europe/Berlin"
 container_locale: "de_DE.UTF-8"
 
+# API V2 Konfiguration
+unify_api_key: "{{ vault_unify_api_key }}"
+unify_api_base_url: "https://{{ unify_controller_host }}"
+
 # UniFi Controller Integration
 unify_controller_host: "{{ groups['controller'][0] | default('10.0.0.254') }}"
-unify_site_id: "5f4a34e0a7986c0ea415ca25"
+unify_site_id: "88f7af54-98f8-306a-a1c7-c9349722b1f6"
 
 # Sicherheits-Einstellungen
 security_ssh_banner_enabled: true

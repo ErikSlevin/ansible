@@ -1,19 +1,59 @@
 ---
-# UniFi Controller Integration
-# Zeigt fertige Befehle für die manuelle Registrierung im UniFi Controller
+# UniFi Controller Integration - Einfache MongoDB-Registrierung
+# Ohne API-Calls, nur direkte MongoDB-Befehle
 
 - name: "COPY-PASTE BEFEHL FÜR REGISTRIERUNG"
   debug:
-    msg: |-
-      ========================================================================
-      COPY-PASTE BEFEHL:
-      ========================================================================
+    msg: |
+      ==========================================================================
+      COPY-PASTE BEFEHL FÜR NAMENSÄNDERUNG (MongoDB):
+      ==========================================================================
 
-      ssh unifi 'mongo --port 27117 ace --eval "db.user.update({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}, {\"\$set\": {\"name\": \"LXC-{{ container_hostname }}\", \"display_name\": \"{{ container_hostname }}\", \"hostname\": \"{{ container_hostname }}\", \"note\": \"Proxmox LXC Container ID {{ container_id }} - Auto-created {{ ansible_date_time.date }}\", \"mac\": \"{{ container_mac_result.stdout | lower }}\", \"is_wired\": true, \"is_guest\": false, \"blocked\": false, \"noted\": true, \"usergroup_id\": \"\", \"use_fixedip\": false, \"fingerprint_override\": true, \"dev_id_override\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"device_id\": \"{{ container_mac_result.stdout | lower | replace(':', '') }}\", \"first_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"last_seen\": NumberLong(Math.floor(Date.now() / 1000)), \"oui\": \"Proxmox Server Solutions GmbH\", \"site_id\": ObjectId(\"{{ unify_site_id }}\")}}, {upsert: true}); print(\"Container {{ container_hostname }} erfolgreich registriert\"); db.user.find({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}).pretty();"'
+      Container: {{ container_hostname }}
+      MAC-Adresse: {{ container_mac_result.stdout | lower }}
+
+      ssh unifi 'mongo --port 27117 ace --eval "
+
+      // Suche alle Clients mit dieser MAC
+      var clients = db.user.find({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}).toArray();
+
+      print(\"Gefundene Clients mit MAC {{ container_mac_result.stdout | lower }}:\");
+
+      if (clients.length > 0) {
+        clients.forEach(function(client, index) {
+          print(\"Client \" + (index + 1) + \":\");
+          print(\"  Name: \" + client.name);
+          print(\"  Device-ID: \" + client.device_id);
+          print(\"  Site-ID: \" + client.site_id);
+        });
+
+        // Alle Clients mit dieser MAC umbenennen
+        var result = db.user.updateMany(
+          {\"mac\": \"{{ container_mac_result.stdout | lower }}\"},
+          {\"\$set\": {
+            \"name\": \"LXC-{{ container_hostname }}\",
+            \"display_name\": \"LXC-{{ container_hostname }}\",
+            \"hostname\": \"{{ container_hostname }}\",
+            \"note\": \"Proxmox LXC Container ID {{ container_id }} - Updated {{ ansible_date_time.date }}\"
+          }}
+        );
+
+        print(\"Update erfolgreich: \" + result.modifiedCount + \" Client(s) umbenannt zu: LXC-{{ container_hostname }}\");
+
+        // Zeige aktuellen Zustand
+        db.user.find({\"mac\": \"{{ container_mac_result.stdout | lower }}\"}).forEach(function(doc) {
+          print(\"Neuer Name: \" + doc.name + \", MAC: \" + doc.mac);
+        });
+
+      } else {
+        print(\"FEHLER: Kein Client mit MAC {{ container_mac_result.stdout | lower }} gefunden\");
+        print(\"Tipp: Container starten und 5-10 Minuten warten, dann erneut versuchen\");
+      }
+      "'
 
       ssh unifi 'service unifi restart'
 
-      ========================================================================
+      ==========================================================================
   when:
     - container_mac_result is defined
     - container_mac_result.stdout != ""

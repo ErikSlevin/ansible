@@ -1,3 +1,4 @@
+---
 # Hauptsteuerung der proxmox_lxc Rolle
 # Erstellt und konfiguriert LXC Container auf Proxmox VE
 
@@ -46,7 +47,7 @@
 
 - name: "UniFi-Integration"
   block:
-    - name: "UniFi-Registrierung vorbereiten"
-      include_tasks: unify_manual.yml
-      when: show_unify_commands | default(true)
-      tags: [unifi, manual_commands]
+   - name: "UniFi-Registrierung vorbereiten"
+     include_tasks: unify_manual.yml
+     when: show_unify_commands | default(true)
+     tags: [unifi, manual_commands]
