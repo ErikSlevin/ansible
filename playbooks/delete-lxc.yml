@@ -179,7 +179,8 @@
       shell: |
         echo "Lösche Container {{ item }}..."
         /usr/sbin/pct destroy {{ item }} --purge{% if force_delete.lower() == 'y' %} --force{% endif %}
-        echo "✅ Container {{ item }} erfolgreich gelöscht"
+        
+        echo "Container {{ item }} erfolgreich gelöscht"
       register: delete_results
       loop: "{{ existing_containers }}"
       when: existing_containers | length > 0
