@@ -13,7 +13,7 @@ lxc_id_range_end: 999
 
 # Standard-Container-Konfiguration
 lxc_defaults:
-  template: "synology:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+  template: "synology:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
   storage: "local-lvm"
   cores: 2
   memory: 2048
