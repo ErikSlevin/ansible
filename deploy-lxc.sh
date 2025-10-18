@@ -18,6 +18,7 @@ DEFAULT_VLAN="20"
 DEFAULT_CORES="2"
 DEFAULT_MEMORY="2048"
 DEFAULT_TEMPLATE="synology:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+DEFAULT_ROOTFS="10"
 
 # Funktionen
 print_usage() {
@@ -32,6 +33,7 @@ print_usage() {
     echo "  -c, --cores CORES      CPU-Kerne (default: $DEFAULT_CORES)"
     echo "  -m, --memory MB        RAM in MB (default: $DEFAULT_MEMORY)"
     echo "  -t, --template TPL     Template-Name (default: Debian 12)"
+    echo "  -r, --rootfs GB        Festplattengröße in GB (default: $DEFAULT_ROOTFS)"
     echo "  --ip IP                Feste IP (default: DHCP)"
     echo "  --check                Nur Check-Modus (kein Deployment)"
     echo "  --debug                Debug-Ausgaben aktivieren"
@@ -67,6 +69,7 @@ CORES="$DEFAULT_CORES"
 MEMORY="$DEFAULT_MEMORY"
 TEMPLATE="$DEFAULT_TEMPLATE"
 IP="dhcp"
+ROOTFS="$DEFAULT_ROOTFS"
 CHECK_MODE=""
 DEBUG_MODE=""
 
@@ -95,6 +98,10 @@ while [[ $# -gt 0 ]]; do
         -t|--template)
             TEMPLATE="$2"
             shift 2
+            ;;
+	-r|--rootfs)
+    	    ROOTFS="$2"
+    	    shift 2
             ;;
         --ip)
             IP="$2"
@@ -136,6 +143,11 @@ if [[ ! "$MEMORY" =~ ^[0-9]+$ ]] || [[ "$MEMORY" -lt 512 ]]; then
     exit 1
 fi
 
+if [[ ! "$ROOTFS" =~ ^[0-9]+$ ]] || [[ "$ROOTFS" -lt 8 ]]; then
+    print_error "Ungültige Festplattengröße: $ROOTFS (mindestens 8 GB)"
+    exit 1
+fi
+
 # Ansible-Verzeichnis prüfen
 if [[ ! -f "ansible.cfg" ]] || [[ ! -d "playbooks" ]]; then
     print_error "Skript muss im Ansible-Root-Verzeichnis ausgeführt werden!"
@@ -156,6 +168,7 @@ echo "  Hostname: $HOSTNAME"
 echo "  VLAN: $VLAN"
 echo "  CPU-Kerne: $CORES"
 echo "  RAM: ${MEMORY}MB"
+echo "  Festplatte: ${ROOTFS}GB"
 echo "  IP: $IP"
 echo "  Template: $TEMPLATE"
 [[ -n "$CHECK_MODE" ]] && echo "  Modus: Nur Überprüfung"
@@ -174,8 +187,8 @@ print_info "Starte Ansible-Deployment..."
 
 ANSIBLE_CMD="ansible-playbook playbooks/deploy-lxc.yml --ask-vault-pass"
 
-# Extra-Variablen zusammenstellen
-EXTRA_VARS="ct_hostname=$HOSTNAME ct_vlan=$VLAN ct_cores=$CORES ct_memory=$MEMORY ct_ip=$IP ct_template=$TEMPLATE"
+# Extra-Variablen zusammenstelle
+EXTRA_VARS="ct_hostname=$HOSTNAME ct_vlan=$VLAN ct_cores=$CORES ct_memory=$MEMORY ct_rootfs=$ROOTFS ct_ip=$IP ct_template=$TEMPLATE"
 [[ -n "$CONTAINER_ID" ]] && EXTRA_VARS="$EXTRA_VARS ct_id=$CONTAINER_ID"
 
 ANSIBLE_CMD="$ANSIBLE_CMD --extra-vars \"$EXTRA_VARS\""
